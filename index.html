@@ -5,6 +5,9 @@
 <title>Dost Chat</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#008069">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0}
@@ -553,6 +556,7 @@ var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 function wipe(){ stopRec(true); if(!isMobile)return; stopPlayers(); all={}; seen={}; edits={}; dels={}; dlv={}; reacts={}; hidden={}; replyTo=null; editing=null; updateBar(); var b=$('msgs'); if(b)b.textContent=''; var i=$('in'); if(i)i.value=''; }
 document.addEventListener('visibilitychange',function(){ if(document.hidden){wipe();lockNow();} else if(!lockOn()||$('lock').style.display!=='flex')seenAll(); });
 window.addEventListener('pagehide',function(){wipe();lockNow();});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 $('go').onclick=start;
 var EMOJIS='😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😎 🤩 🥳 😏 😒 😞 😔 😢 😭 😤 😡 🤯 😱 😴 🤔 🙄 😬 🤗 🙏 👍 👎 👏 🙌 💪 👌 🤝 ❤️ 💔 🔥 ✨ 🎉 🎂 🌹 ☕ 🍕 🙈 😜 🤪 🥺 😌 😷 🤒';
 var emp=$('emp'); EMOJIS.split(' ').forEach(function(e){var sp=document.createElement('span');sp.textContent=e;sp.onclick=function(){$('in').value+=e;updIcon();};emp.appendChild(sp);});
