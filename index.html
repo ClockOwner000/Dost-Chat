@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Dost Chat</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#008069">
+<meta name="apple-mobile-web-app-title" content="Clock">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -135,17 +136,42 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 #menu .red{color:#d32f2f}
 
 /* lock */
-#lock{display:none;position:fixed;inset:0;z-index:100;background:#008069;color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center}
-#lock .big{font-size:46px}
-#lock input{width:min(80%,240px);padding:12px;border:0;border-radius:12px;font:inherit;font-size:22px;text-align:center;letter-spacing:8px}
-#lock button{width:min(80%,240px);padding:12px;border:0;border-radius:12px;background:#d9fdd3;color:#075e54;font-weight:700}
-#lerr{height:18px;font-size:13px;color:#ffd7d7}
+#lock{display:none;position:fixed;inset:0;z-index:100;background:#0b0f14;color:#e8eef5;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#lock svg{width:min(72vw,290px);height:auto;touch-action:none}
+#ck-dig{font-size:46px;font-weight:300;letter-spacing:1px}
+#ck-date{font-size:14px;opacity:.55}
+#ck-opt{position:absolute;right:12px;top:50%;margin-top:-14px;width:28px;height:28px;padding:0;border:1.5px solid rgba(255,255,255,.3);border-radius:50%;background:none;color:#fff;font-size:15px;line-height:1;opacity:.45}
+#ck-opt.on{opacity:.9;background:rgba(255,255,255,.12)}
+#ck-ctl{display:none;gap:22px;margin-top:6px}
+#ck-ctl div{display:flex;flex-direction:column;gap:8px;align-items:center;font-size:12px;opacity:.9}
+#ck-ctl button{width:64px;height:40px;border:0;border-radius:10px;background:#1c2530;color:#e8eef5;font-size:22px}
+#ck-ctl button:active{background:#2b3846}
+#ck-ok{background:#25d366!important;color:#06281a!important;font-weight:700}
+
+/* video call */
+#vcall{background:none;border:0;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%}
+#vcall:active{background:rgba(255,255,255,.15)}
+#ringbar{display:none;position:fixed;left:10px;right:10px;top:max(10px,env(safe-area-inset-top));z-index:120;background:#1c2530;color:#fff;border-radius:14px;padding:10px 12px;align-items:center;justify-content:space-between;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+#ringbar .rb-txt small{display:block;opacity:.7;font-size:12px}
+.rb-btns{display:flex;gap:8px}
+.rb-btns button{width:42px;height:42px;border:0;border-radius:50%;font-size:18px}
+.rb-ok{background:#25d366;color:#fff}
+.rb-x{background:#e24747;color:#fff}
+#callview{display:none;position:fixed;inset:0;z-index:130;background:#0b0f14}
+#callview video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#111}
+#localV{width:100px;height:140px;top:max(12px,env(safe-area-inset-top));right:12px;left:auto;bottom:auto;border-radius:12px;border:2px solid rgba(255,255,255,.5)}
+#callstate{position:absolute;top:max(14px,env(safe-area-inset-top));left:14px;color:#fff;font-size:14px;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:20px}
+#callbtns{position:absolute;left:0;right:0;bottom:max(24px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:22px}
+#callbtns button{width:54px;height:54px;border-radius:50%;border:0;font-size:22px;background:#1c2530;color:#fff}
+#callbtns button.off{background:#e24747}
+#cv-end{background:#e24747}
 </style>
 </head>
 <body>
 <header>
   <div class="av" id="avt">💬</div>
   <div class="hd"><b id="ttl">Dost Chat</b><small id="st"></small></div>
+  <button id="vcall" aria-label="Video call">📹</button>
   <button id="more" aria-label="Settings">⋮</button>
 </header>
 
@@ -173,11 +199,38 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 <div id="iv"><img alt=""></div>
 
 <div id="lock">
-  <div class="big">🔒</div>
-  <h2 style="margin:0">Dost Chat locked hai</h2>
-  <input id="pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN" autocomplete="off">
-  <div id="lerr"></div>
-  <button id="unlock">Unlock karo</button>
+  <svg viewBox="0 0 200 200" aria-label="Clock">
+    <circle cx="100" cy="100" r="96" fill="#121922" stroke="#2b3846" stroke-width="3"/>
+    <g id="ck-ticks" stroke="#8795a5"></g>
+    <line id="ck-h" x1="100" y1="100" x2="100" y2="58" stroke="#e8eef5" stroke-width="5" stroke-linecap="round"/>
+    <line id="ck-m" x1="100" y1="100" x2="100" y2="34" stroke="#e8eef5" stroke-width="3.5" stroke-linecap="round"/>
+    <line id="ck-s" x1="100" y1="112" x2="100" y2="28" stroke="#ff9f43" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="100" cy="100" r="4.5" fill="#ff9f43"/>
+  </svg>
+  <div id="ck-dig"></div>
+  <div id="ck-date"></div>
+  <div id="ck-ctl">
+    <div>Ghanta<button id="hp">+</button><button id="hm">−</button></div>
+    <div>Minute<button id="mp">+</button><button id="mm">−</button></div>
+    <div>&nbsp;<button id="ck-ok">OK</button></div>
+  </div>
+  <button id="ck-opt" aria-label="Option">○</button>
+</div>
+
+<div id="ringbar">
+  <div class="rb-txt"><b id="rb-name"></b><small>Video call aa rahi hai</small></div>
+  <div class="rb-btns"><button id="rb-dec" class="rb-x">✕</button><button id="rb-acc" class="rb-ok">📹</button></div>
+</div>
+
+<div id="callview">
+  <video id="remoteV" autoplay playsinline></video>
+  <video id="localV" autoplay playsinline muted></video>
+  <div id="callstate"></div>
+  <div id="callbtns">
+    <button id="cv-mic">🎙️</button>
+    <button id="cv-cam">🎥</button>
+    <button id="cv-end">📞</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
@@ -477,7 +530,7 @@ function start(){
   $('join').style.display='none'; $('chat').style.display='flex'; conn='connecting…'; setStatus();
   base='dostchat-v1/'+room;
   client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:3000,clean:true});
-  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres']); presPing(); client.publish(base+'/hist','',{retain:true}); });
+  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
   client.on('reconnect',function(){ conn='reconnecting…'; setStatus(); });
   client.on('offline',function(){ conn='offline'; setStatus(); });
   client.on('message',function(topic,payload){
@@ -498,8 +551,9 @@ function start(){
         dels[d.id]=d.cid;
         var m2=all[d.id]; if(m2&&m2.cid===d.cid){m2.deleted=1;render(true);}
       }
+      else if(t==='rtc'){ if(d.cid!==cid) rtcHandle(d); }
       else if(t==='msg'){
-        if(d.cid!==cid){delete typers[d.cid];peer={cid:d.cid,name:d.name,ts:Date.now()};if(!all[d.id])pub('seen',{cid:cid,dlv:[d.id],ids:[]});}
+        if(d.cid!==cid){delete typers[d.cid];peer={cid:d.cid,name:d.name,ts:Date.now()};if(!all[d.id]){pub('seen',{cid:cid,dlv:[d.id],ids:[]});notifyMsg();}}
         merge([d]); setStatus();
         if(d.cid!==cid && !document.hidden) sendSeen([d.id]);
       }
@@ -515,38 +569,110 @@ function start(){
 }
 
 /* ---------- settings menu + app lock ---------- */
-function lockOn(){return !!ls('dc_pin')}
+function lockOn(){return !!ls('dc_ck')}
+function pad2(n){return ('0'+n).slice(-2)}
+function ckNorm(h,m){return pad2(h%12||12)+':'+pad2(m)}
+var ckSet=false, ckH=0, ckM=0, ckTimer=null;
+(function(){var g=$('ck-ticks');for(var i=0;i<60;i++){var l=document.createElementNS('http://www.w3.org/2000/svg','line'),big=i%5===0;
+  l.setAttribute('x1',100);l.setAttribute('x2',100);l.setAttribute('y1',big?10:8);l.setAttribute('y2',big?22:14);
+  l.setAttribute('stroke-width',big?3:1.2);l.setAttribute('transform','rotate('+(i*6)+' 100 100)');g.appendChild(l);}})();
+function rot(id,a){$(id).setAttribute('transform','rotate('+a+' 100 100)')}
+function ckDraw(){
+  if($('lock').style.display!=='flex')return;
+  var d=new Date(),h,m,s;
+  if(ckSet){h=ckH;m=ckM;s=0;$('ck-dig').textContent=pad2(h)+':'+pad2(m);$('ck-s').style.display='none';}
+  else{h=d.getHours();m=d.getMinutes();s=d.getSeconds();$('ck-dig').textContent=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});$('ck-s').style.display='';}
+  $('ck-date').textContent=d.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});
+  if(!ckDrag)rot('ck-h',((h%12)+m/60)*30); if(!ckDrag)rot('ck-m',(m+s/60)*6); rot('ck-s',s*6);
+}
+setInterval(ckDraw,1000);
+function ckMode(on){
+  ckSet=on; var o=$('ck-opt'); o.textContent=on?'✓':'○'; o.className=on?'on':'';
+  $('ck-ctl').style.display=on?'flex':'none';
+  if(on){var d=new Date();ckH=d.getHours();ckM=d.getMinutes();}
+  ckDraw();
+}
+function ckTryOk(){
+  if(hash(ckNorm(ckH,ckM))===ls('dc_ck')){ unlockApp(); }
+  else { var dg=$('ck-dig'); dg.style.color='#ff6b6b'; setTimeout(function(){dg.style.color='';},500); }
+}
+$('ck-opt').onclick=function(){ckMode(!ckSet)};
+var ckDrag=null;
+function ckAngle(ev,svg){
+  var r=svg.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+  var x=(ev.touches?ev.touches[0].clientX:ev.clientX)-cx, y=(ev.touches?ev.touches[0].clientY:ev.clientY)-cy;
+  var a=Math.atan2(x,-y)*180/Math.PI; if(a<0)a+=360; return a;
+}
+(function(){
+  var svg=document.querySelector('#lock svg');
+  function angDiff(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d;}
+  svg.addEventListener('pointerdown',function(ev){
+    if(!ckSet)return; ev.preventDefault();
+    var a=ckAngle(ev,svg);
+    var ha=((ckH%12)+ckM/60)*30, ma=ckM*6;
+    ckDrag = angDiff(a,ma)<=angDiff(a,ha) ? 'm' : 'h';
+    svg.setPointerCapture&&svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener('pointermove',function(ev){
+    if(!ckDrag||!ckSet)return; ev.preventDefault();
+    var a=ckAngle(ev,svg);
+    if(ckDrag==='m'){ ckM=Math.round(a/6)%60; rot('ck-m',ckM*6); }
+    else { var h12=Math.round(a/30)%12; ckH=h12+(ckH>=12?12:0); rot('ck-h',((ckH%12)+ckM/60)*30); }
+    $('ck-dig').textContent=pad2(ckH)+':'+pad2(ckM);
+  });
+  function up(){ckDrag=null;}
+  svg.addEventListener('pointerup',up); svg.addEventListener('pointerleave',up); svg.addEventListener('pointercancel',up);
+})();
+
+function hold(id,fn){
+  var b=$(id),t1=null,t2=null;
+  function stop(){clearTimeout(t1);clearInterval(t2);}
+  b.addEventListener('pointerdown',function(e){e.preventDefault();fn();t1=setTimeout(function(){t2=setInterval(fn,90);},400);});
+  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,stop);});
+}
+hold('hp',function(){ckH=(ckH+1)%24;ckDraw();});
+hold('hm',function(){ckH=(ckH+23)%24;ckDraw();});
+hold('mp',function(){ckM=(ckM+1)%60;ckDraw();});
+hold('mm',function(){ckM=(ckM+59)%60;ckDraw();});
+$('ck-ok').onclick=ckTryOk;
 function lockNow(){
   if(!lockOn())return;
-  $('lock').style.display='flex'; $('pin').value=''; $('lerr').textContent='';
+  $('lock').style.display='flex'; ckMode(false);
 }
-function tryUnlock(){
-  if(hash($('pin').value)===ls('dc_pin')){ $('lock').style.display='none'; $('pin').value=''; if(client)seenAll(); }
-  else { $('lerr').textContent='Galat PIN, dobara koshish karo'; $('pin').value=''; }
+function unlockApp(){
+  $('lock').style.display='none'; ckSet=false;
+  if(ckTimer){clearTimeout(ckTimer);ckTimer=null;}
+  if(client)seenAll();
 }
-$('unlock').onclick=tryUnlock;
-$('pin').onkeydown=function(e){if(e.key==='Enter')tryUnlock();};
-
+function askTime(msg){
+  var p=prompt(msg+' (jaise 4:40)'); if(p===null)return null;
+  var m=/^\s*(\d{1,2})\s*[:.]\s*(\d{2})\s*$/.exec(p);
+  if(!m||+m[1]>23||+m[2]>59){alert('Time galat hai. Aise likho: 4:40');return null;}
+  return ckNorm(+m[1],+m[2]);
+}
 function setPin(){
-  var p=prompt('Naya PIN likho (4 se 8 digit)'); if(p===null)return;
-  if(!/^\d{4,8}$/.test(p)){alert('PIN sirf 4 se 8 digit ka hona chahiye');return;}
-  var p2=prompt('PIN dobara likho'); if(p2!==p){alert('PIN match nahi hua');return;}
-  ls('dc_pin',hash(p)); alert('Lock lag gaya. Ab app background mein jaye to khud lock ho jayegi.');
+  var t=askTime('Clock password time likho'); if(!t)return;
+  ls('dc_ck',hash(t)); alert('Clock lock lag gaya. Ab app khulne par clock nazar aaye gi. Side ke ○ ko tick karke time '+t+' par lao to app khul jaye gi.');
 }
 function removePin(){
-  var p=prompt('Lock hatane ke liye purana PIN likho'); if(p===null)return;
-  if(hash(p)===ls('dc_pin')){ls('dc_pin',null);alert('Lock hata diya');} else alert('Galat PIN');
+  var t=askTime('Lock hatane ke liye purana clock password likho'); if(!t)return;
+  if(hash(t)===ls('dc_ck')){ls('dc_ck',null);alert('Lock hata diya');} else alert('Galat time');
 }
 $('more').onclick=function(e){
   e.stopPropagation();
   var items=[];
   if(lockOn()){
     items.push({t:'🔒 Abhi lock karo',f:lockNow});
-    items.push({t:'🔑 PIN badlo',f:function(){var p=prompt('Purana PIN');if(p!==null&&hash(p)===ls('dc_pin'))setPin();else if(p!==null)alert('Galat PIN');}});
+    items.push({t:'🕒 Clock password badlo',f:function(){var t=askTime('Purana clock password likho');if(!t)return;if(hash(t)===ls('dc_ck'))setPin();else alert('Galat time');}});
     items.push({t:'🔓 Lock hatao',f:removePin});
-  } else items.push({t:'🔒 App lock lagao',f:setPin});
+  } else items.push({t:'🕒 Clock password lagao',f:setPin});
   items.push({t:ls('dc_dark')==='1'?'☀️ Light mode':'🌙 Dark mode',f:function(){ls('dc_dark',ls('dc_dark')==='1'?'0':'1');applyDark();}});
   items.push({t:'🧹 Chat saaf karo',f:function(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};stopPlayers();render();} }});
+  items.push({t:ls('dc_vhide')==='1'?'🔓 Video call wapas lao':'🙈 Video call chupao',f:function(){
+    if(ls('dc_vhide')==='1'){ var p=prompt('Password likho'); if(p===null)return; if(p==='786'){ls('dc_vhide',null);applyVHide();alert('Video call wapas aa gaya');} else alert('Galat password'); }
+    else { ls('dc_vhide','1'); applyVHide(); }
+  }});
+  items.push({t:Notification && Notification.permission==='granted'?'🔔 Notification on hai':'🔔 Notification on karo',f:enableNotif});
   items.push({t:'🚪 Chat code badlo',f:function(){location.reload()}});
   showMenu(items,$('more').getBoundingClientRect());
 };
@@ -576,6 +702,105 @@ $('fi').onchange=function(){
 $('iv').onclick=function(){this.style.display='none'};
 function applyDark(){ var on=ls('dc_dark')==='1'; document.body.classList.toggle('dark',on); document.querySelector('meta[name=theme-color]').content=on?'#202c33':'#008069'; }
 if(!ls('dc_dark'))ls('dc_dark',(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'1':'0');
+
+/* ---------- video call (WebRTC, signaling over MQTT) ---------- */
+var pc=null, localStream=null, callPeerCid=null, callPeerName='', pendingOffer=null, micOn=true, camOn=true, callTimer=null;
+var RTC_CFG={iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]};
+function rtcSend(d){ if(client&&client.connected)client.publish(base+'/rtc',JSON.stringify(d),{qos:1}); }
+function newPc(){
+  var p=new RTCPeerConnection(RTC_CFG);
+  p.onicecandidate=function(e){ if(e.candidate) rtcSend({kind:'ice',cid:cid,candidate:e.candidate}); };
+  p.ontrack=function(e){ $('remoteV').srcObject=e.streams[0]; setCallState('Connected'); };
+  p.onconnectionstatechange=function(){ if(p.connectionState==='failed'||p.connectionState==='disconnected')endCall(true); };
+  return p;
+}
+function setCallState(t){ $('callstate').textContent=t; }
+async function getMedia(){
+  localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:{facingMode:'user'}});
+  $('localV').srcObject=localStream;
+}
+async function startCall(){
+  if(!client||!client.connected){alert('Pehle chat connect ho jaye.');return;}
+  try{ await getMedia(); }catch(e){ alert('Camera/mic ki ijazat nahi mili.'); return; }
+  pc=newPc();
+  localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
+  callPeerCid=null; callPeerName=peer?peer.name:'';
+  $('callview').style.display='block'; setCallState('Call ho rahi hai…');
+  var offer=await pc.createOffer(); await pc.setLocalDescription(offer);
+  rtcSend({kind:'offer',cid:cid,name:myName,sdp:offer});
+}
+function rtcHandle(d){
+  if(d.kind==='offer'){
+    if(pc){ rtcSend({kind:'busy',cid:cid,to:d.cid}); return; }
+    pendingOffer=d; callPeerCid=d.cid; callPeerName=d.name||'Dost';
+    $('rb-name').textContent=callPeerName; $('ringbar').style.display='flex';
+  }
+  else if(d.kind==='answer'){ if(pc&&callPeerCid===null){ callPeerCid=d.cid; pc.setRemoteDescription(d.sdp); } }
+  else if(d.kind==='ice'){ if(pc&&(callPeerCid===d.cid||callPeerCid===null)) pc.addIceCandidate(d.candidate).catch(function(){}); }
+  else if(d.kind==='end'){ if(pc||pendingOffer) endCall(true); }
+  else if(d.kind==='busy'){ if(d.to===cid) endCall(true); }
+}
+async function acceptCall(){
+  $('ringbar').style.display='none'; var off=pendingOffer; pendingOffer=null;
+  if(!off)return;
+  try{ await getMedia(); }catch(e){ alert('Camera/mic ki ijazat nahi mili.'); rtcSend({kind:'end',cid:cid}); return; }
+  pc=newPc();
+  localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
+  $('callview').style.display='block'; setCallState('Jud raha hai…');
+  await pc.setRemoteDescription(off.sdp);
+  var ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
+  rtcSend({kind:'answer',cid:cid,sdp:ans});
+}
+function declineCall(){ $('ringbar').style.display='none'; if(pendingOffer)rtcSend({kind:'end',cid:cid}); pendingOffer=null; callPeerCid=null; }
+function endCall(remoteEnded){
+  if(pc){ try{pc.close()}catch(e){} pc=null; }
+  if(localStream){ localStream.getTracks().forEach(function(t){t.stop()}); localStream=null; }
+  $('remoteV').srcObject=null; $('localV').srcObject=null;
+  $('callview').style.display='none'; $('ringbar').style.display='none';
+  if(!remoteEnded && callPeerCid!==undefined) rtcSend({kind:'end',cid:cid});
+  callPeerCid=null; pendingOffer=null; micOn=true; camOn=true;
+  $('cv-mic').className=''; $('cv-cam').className='';
+}
+$('vcall').onclick=startCall;
+$('rb-acc').onclick=acceptCall;
+$('rb-dec').onclick=declineCall;
+$('cv-end').onclick=function(){endCall(false)};
+$('cv-mic').onclick=function(){ micOn=!micOn; if(localStream)localStream.getAudioTracks().forEach(function(t){t.enabled=micOn}); this.className=micOn?'':'off'; };
+$('cv-cam').onclick=function(){ camOn=!camOn; if(localStream)localStream.getVideoTracks().forEach(function(t){t.enabled=camOn}); this.className=camOn?'':'off'; };
+
+/* ---------- hide video call (password 786) ---------- */
+function applyVHide(){ $('vcall').style.display = ls('dc_vhide')==='1' ? 'none' : ''; }
+
+/* ---------- notifications ---------- */
+function enableNotif(){
+  if(!('Notification' in window)){ alert('Is browser mein notifications support nahi hain.'); return; }
+  if(Notification.permission==='granted'){ alert('Notification pehle se on hain.'); return; }
+  Notification.requestPermission().then(function(p){ if(p==='granted')alert('Notification on ho gaye.'); else alert('Ijazat nahi mili.'); });
+}
+function notifyMsg(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  if(!document.hidden) return;
+  try{
+    var n=new Notification('Clock',{body:'Naya message aaya',icon:'icon-192.png',tag:'dc-msg'});
+    n.onclick=function(){ window.focus(); n.close(); };
+  }catch(e){}
+}
+
+/* ---------- keyboard overlap fix ---------- */
+(function(){
+  var vv=window.visualViewport;
+  function fix(){
+    if(!vv)return;
+    document.body.style.height=vv.height+'px';
+    window.scrollTo(0,0);
+    var box=$('msgs'); if(box)box.scrollTop=box.scrollHeight;
+  }
+  if(vv){ vv.addEventListener('resize',fix); vv.addEventListener('scroll',fix); }
+  $('in').addEventListener('focus',function(){ setTimeout(fix,250); setTimeout(fix,500); });
+  $('in').addEventListener('blur',function(){ document.body.style.height=''; });
+})();
+
+applyVHide();
 applyDark();
 updIcon();
 lockNow();
