@@ -34,6 +34,10 @@ header{background:#008069;color:#fff;padding:10px 6px 10px 12px;display:flex;ali
 
 /* chat */
 #chat{display:none;flex:1;min-height:0;flex-direction:column}
+#sb{flex:none;padding:6px 10px;background:#f0f2f5}
+#sq{width:100%;border:0;border-radius:10px;padding:9px 14px;font:inherit;font-size:15px;background:#fff;color:#111b21;outline:none}
+body.dark #sb{background:#111b21}
+body.dark #sq{background:#202c33;color:#e9edef}
 #msgs{flex:1;overflow-y:auto;padding:10px 10px 6px;display:flex;flex-direction:column;gap:3px;
   background-color:#efeae2;
   background-image:radial-gradient(rgba(11,20,26,.045) 1.2px,transparent 1.4px),radial-gradient(rgba(11,20,26,.03) 1px,transparent 1.2px);
@@ -135,18 +139,16 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 #menu div:active{background:#f0f2f5}
 #menu .red{color:#d32f2f}
 
+/* recent-apps cover */
+#cover{display:none;position:fixed;inset:0;z-index:9999;background:#000}
 /* lock */
 #lock{display:none;position:fixed;inset:0;z-index:100;background:#0b0f14;color:#e8eef5;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 #lock svg{width:min(72vw,290px);height:auto;touch-action:none}
 #ck-dig{font-size:46px;font-weight:300;letter-spacing:1px}
 #ck-date{font-size:14px;opacity:.55}
-#ck-opt{position:absolute;right:12px;top:50%;margin-top:-14px;width:28px;height:28px;padding:0;border:1.5px solid rgba(255,255,255,.3);border-radius:50%;background:none;color:#fff;font-size:15px;line-height:1;opacity:.45}
-#ck-opt.on{opacity:.9;background:rgba(255,255,255,.12)}
-#ck-ctl{display:none;gap:22px;margin-top:6px}
-#ck-ctl div{display:flex;flex-direction:column;gap:8px;align-items:center;font-size:12px;opacity:.9}
-#ck-ctl button{width:64px;height:40px;border:0;border-radius:10px;background:#1c2530;color:#e8eef5;font-size:22px}
-#ck-ctl button:active{background:#2b3846}
-#ck-ok{background:#25d366!important;color:#06281a!important;font-weight:700}
+#ck-ok{display:none;width:120px;height:42px;border:0;border-radius:10px;background:#25d366;color:#06281a;font-size:16px;font-weight:700;margin-top:6px}
+#ck-word{position:absolute;left:0;right:0;bottom:calc(26px + env(safe-area-inset-bottom,0px));font-size:15px;letter-spacing:3px;color:#e8eef5;opacity:.4;text-align:center}
+#ck-o{display:inline-block;padding:14px 4px;margin:-14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 
 /* video call */
 #vcall{background:none;border:0;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%}
@@ -159,9 +161,11 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 .rb-x{background:#e24747;color:#fff}
 #callview{display:none;position:fixed;inset:0;z-index:130;background:#0b0f14}
 #callview video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#111}
-#localV{width:100px;height:140px;top:max(12px,env(safe-area-inset-top));right:12px;left:auto;bottom:auto;border-radius:12px;border:2px solid rgba(255,255,255,.5)}
-#callstate{position:absolute;top:max(14px,env(safe-area-inset-top));left:14px;color:#fff;font-size:14px;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:20px}
-#callbtns{position:absolute;left:0;right:0;bottom:max(24px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:22px}
+#callview #remoteV{z-index:1}
+@media (min-width:700px){#callview #remoteV{object-fit:contain}}
+#callview #localV{z-index:3;width:110px;height:150px;top:max(12px,env(safe-area-inset-top));right:12px;left:auto;bottom:auto;border-radius:14px;border:2px solid rgba(255,255,255,.6);background:#222;transform:scaleX(-1);box-shadow:0 2px 10px rgba(0,0,0,.5)}
+#callstate{z-index:4;position:absolute;top:max(14px,env(safe-area-inset-top));left:14px;color:#fff;font-size:14px;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:20px}
+#callbtns{z-index:4;position:absolute;left:0;right:0;bottom:max(24px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:22px}
 #callbtns button{width:54px;height:54px;border-radius:50%;border:0;font-size:22px;background:#1c2530;color:#fff}
 #callbtns button.off{background:#e24747}
 #cv-end{background:#e24747}
@@ -184,6 +188,7 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 </div>
 
 <div id="chat">
+  <div id="sb"><input id="sq" type="text" placeholder="🔍 Search…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div>
   <div id="msgs"></div>
   <div id="bar"><div class="bx"><b id="bt"></b><span id="bs"></span></div><button id="barx">✕</button></div>
   <div id="rec"><button id="rcx" aria-label="Cancel">🗑️</button><span class="dot"></span><span id="rt">0:00</span><button id="rcs" aria-label="Send voice">➤</button></div>
@@ -209,13 +214,11 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
   </svg>
   <div id="ck-dig"></div>
   <div id="ck-date"></div>
-  <div id="ck-ctl">
-    <div>Ghanta<button id="hp">+</button><button id="hm">−</button></div>
-    <div>Minute<button id="mp">+</button><button id="mm">−</button></div>
-    <div>&nbsp;<button id="ck-ok">OK</button></div>
-  </div>
-  <button id="ck-opt" aria-label="Option">○</button>
+  <button id="ck-ok">OK</button>
+  <div id="ck-word">Cl<span id="ck-o">o</span>ck</div>
 </div>
+
+<div id="cover"></div>
 
 <div id="ringbar">
   <div class="rb-txt"><b id="rb-name"></b><small>Video call aa rahi hai</small></div>
@@ -248,6 +251,46 @@ function clip(s,n){s=String(s||'');return s.length>n?s.slice(0,n)+'…':s}
 function hash(s){var h=5381;s='dc|'+s;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(36)}
 function hhmm(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
 
+/* ---------- emoji mask + search secret code ---------- */
+function sqSet(){return !!ls('dc_sq')}
+var maskOn = ls('dc_mask')==='1' && !!ls('dc_sq'), sqText='';
+var MASK_EM='😀 😂 😍 😎 🥳 😴 🤔 😇 🙃 😜 🤗 😋 🥰 😏 😅 🤩 😬 🙄 😌 😢 😡 🤠 🤓 😺 🐶 🐱 🦊 🐼 🐸 🐵 🌸 🌼 🍀 ⭐ 🌙 ☀️ 🔥 🍕 🍔 🍩 🍉 🍓 ☕ ⚽ 🎈 🎁 🎵 🚗 ✈️'.split(' ');
+function seedOf(id){var n=0;String(id).split('').forEach(function(c){n+=c.charCodeAt(0)});return n}
+function maskText(str,seed){
+  var out='',i=0;
+  Array.from(String(str||'')).forEach(function(ch){
+    if(/\s/.test(ch)){out+=' ';return;}
+    out+=MASK_EM[(ch.codePointAt(0)+i*7+seed)%MASK_EM.length]; i++;
+  });
+  return out;
+}
+function maskApply(on){
+  maskOn=on; ls('dc_mask',on?'1':null);
+  sqText=''; var q=$('sq'); if(q)q.value='';
+  if(on){ stopPlayers(); cancelBar(); hideMenu(); $('iv').style.display='none'; $('emp').style.display='none'; $('in').value=''; updIcon(); }
+  setStatus(); render(false);
+}
+function hideChat(){ stopRec(true); if(sqSet()&&!maskOn)maskApply(true); }
+function setSq(){
+  var c=prompt('Search ka secret code likho (kam se kam 3 akshar)'); if(c===null)return;
+  c=c.trim().toLowerCase();
+  if(c.length<3){alert('Secret code kam se kam 3 akshar ka rakho');return;}
+  ls('dc_sq',hash('sq|'+c));
+  alert('Secret code lag gaya. Ab app minimize karne par chat emoji ban jayegi. Upar Search mein apna secret code likho to chat wapis text mein aa jayegi.');
+}
+function askOldSq(next){
+  var c=prompt('Purana secret code likho'); if(c===null)return;
+  if(hash('sq|'+c.trim().toLowerCase())===ls('dc_sq'))next(); else alert('Galat secret code');
+}
+$('sq').oninput=function(){
+  var v=$('sq').value.trim().toLowerCase();
+  if(maskOn){
+    if(sqSet()&&v&&hash('sq|'+v)===ls('dc_sq'))maskApply(false);
+    return;
+  }
+  sqText=v; render(false);
+};
+
 /* ---------- status / typing ---------- */
 function setStatus(){
   var now=Date.now(), names=[];
@@ -259,7 +302,8 @@ function setStatus(){
     if(conn==='online'||!conn){ tx=peer?((now-peer.ts<20000)?'online':'last seen '+hhmm(peer.ts)):''; }
     st.textContent=tx;st.className='';
   }
-  $('ttl').textContent=peer?peer.name:'Dost Chat'; $('avt').textContent=peer?peer.name.charAt(0).toUpperCase():'💬';
+  $('ttl').textContent=(peer&&!maskOn)?peer.name:'Dost Chat'; $('avt').textContent=(peer&&!maskOn)?peer.name.charAt(0).toUpperCase():'💬';
+  if(maskOn){st.textContent='';st.className='';}
 }
 setInterval(setStatus,1000);
 
@@ -271,26 +315,29 @@ function render(keepScroll){
   var en=document.createElement('div');en.className='enc';en.textContent='🔒 Is chat ke messages sirf wahi dekh sakte hain jinke paas chat code hai.';box.appendChild(en);
   var prev=null;
   list=list.filter(function(v){return !hidden[v.id]});
+  if(!maskOn&&sqText)list=list.filter(function(v){return !v.deleted&&String(v.text||'').toLowerCase().indexOf(sqText)>=0});
   list.forEach(function(v){
-    var mine=v.cid===cid, isDel=!!v.deleted;
+    var mine=v.cid===cid, isDel=!!v.deleted, sd=seedOf(v.id);
     var newDay=!prev||new Date(prev.ts).toDateString()!==new Date(v.ts).toDateString();
     if(newDay){var ds=document.createElement('div');ds.className='ds';ds.textContent=dayLabel(v.ts);box.appendChild(ds);}
     var rxs=reacts[v.id]?Object.keys(reacts[v.id]).map(function(c){return reacts[v.id][c]}):[];
     var el=document.createElement('div'); el.className='m'+(mine?' me':'')+((newDay||prev.cid!==v.cid)?' first':'')+(rxs.length&&!isDel?' hasrx':''); el.id='m_'+v.id;
-    if(!mine && (!prev||prev.cid!==v.cid)){var n=document.createElement('span');n.className='n';n.textContent=v.name;el.appendChild(n);}
+    if(!mine && (!prev||prev.cid!==v.cid)){var n=document.createElement('span');n.className='n';n.textContent=maskOn?maskText(v.name,sd):v.name;el.appendChild(n);}
     if(v.reply && !isDel){
       var q=document.createElement('span');q.className='q';
       var qb=document.createElement('b');qb.textContent=v.reply.cid===cid?'Aap':v.reply.name;
-      var qs=document.createElement('span');qs.textContent=clip(v.reply.text,80);
+      var qs=document.createElement('span');qs.textContent=maskOn?maskText(clip(v.reply.text,80),sd):clip(v.reply.text,80);
       q.appendChild(qb);q.appendChild(qs);
       q.onclick=function(e){e.stopPropagation();jumpTo(v.reply.id)};
       el.appendChild(q);
     }
-    if(v.img&&!isDel){var im=document.createElement('img');im.className='mi';im.src=v.img;im.onclick=function(e){e.stopPropagation();$('iv').firstElementChild.src=v.img;$('iv').style.display='flex'};el.appendChild(im);}
-    if(v.audio&&!isDel){ el.appendChild(voiceEl(v)); }
+    if(v.img&&!isDel&&maskOn){var ph=document.createElement('span');ph.className='tx';ph.textContent='🖼️';el.appendChild(ph);}
+    else if(v.img&&!isDel){var im=document.createElement('img');im.className='mi';im.src=v.img;im.onclick=function(e){e.stopPropagation();$('iv').firstElementChild.src=v.img;$('iv').style.display='flex'};el.appendChild(im);}
+    if(v.audio&&!isDel&&maskOn){ var pv=document.createElement('span');pv.className='tx';pv.textContent='🎤🎶';el.appendChild(pv); }
+    else if(v.audio&&!isDel){ el.appendChild(voiceEl(v)); }
     else if(!(v.img&&!isDel&&v.text==='📷 Photo')){
       var b=document.createElement('span');b.className='tx'+(isDel?' del':'');
-      b.textContent=isDel?'🚫 Ye message delete kar diya gaya':v.text;
+      b.textContent=isDel?'🚫 Ye message delete kar diya gaya':(maskOn?maskText(v.text,sd):v.text);
       el.appendChild(b);
     }
     var t=document.createElement('span');t.className='meta';
@@ -430,6 +477,7 @@ function setReact(id,em){
   pub('react',{id:id,cid:cid,e:reacts[id][cid]||''}); render(true);
 }
 function msgMenu(v,rect){
+  if(maskOn)return;
   var its=[{row:['👍','❤️','😂','😮','😢','🙏'],f:function(em){setReact(v.id,em)}},
     {t:'↩️ Reply',f:function(){setReply(v)}}];
   if(!v.audio&&!(v.img&&v.text==='📷 Photo'))its.push({t:'📋 Copy',f:function(){try{navigator.clipboard.writeText(v.text)}catch(e){}}});
@@ -460,7 +508,7 @@ function updateBar(){
   else if(replyTo){bar.style.display='flex';$('bt').textContent=replyTo.cid===cid?'Aap':replyTo.name;$('bs').textContent=clip(replyTo.text,80);}
   else bar.style.display='none';
 }
-function setReply(v){ editing=null; replyTo={id:v.id,cid:v.cid,name:v.name,text:v.text}; updateBar(); $('in').focus(); }
+function setReply(v){ if(maskOn)return; editing=null; replyTo={id:v.id,cid:v.cid,name:v.name,text:v.text}; updateBar(); $('in').focus(); }
 function startEdit(id){ if(!all[id])return; replyTo=null; editing=id; $('in').value=all[id].text; updateBar(); $('in').focus(); }
 function cancelBar(){ if(editing)$('in').value=''; editing=null; replyTo=null; updateBar(); }
 $('barx').onclick=cancelBar;
@@ -580,23 +628,23 @@ function rot(id,a){$(id).setAttribute('transform','rotate('+a+' 100 100)')}
 function ckDraw(){
   if($('lock').style.display!=='flex')return;
   var d=new Date(),h,m,s;
-  if(ckSet){h=ckH;m=ckM;s=0;$('ck-dig').textContent=pad2(h)+':'+pad2(m);$('ck-s').style.display='none';}
-  else{h=d.getHours();m=d.getMinutes();s=d.getSeconds();$('ck-dig').textContent=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});$('ck-s').style.display='';}
+  if(ckSet){h=ckH;m=ckM;s=0;$('ck-dig').textContent=pad2(h%12||12)+':'+pad2(m);$('ck-s').style.display='none';}
+  else{h=d.getHours();m=d.getMinutes();s=d.getSeconds();$('ck-dig').textContent=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:true});$('ck-s').style.display='';}
   $('ck-date').textContent=d.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});
   if(!ckDrag)rot('ck-h',((h%12)+m/60)*30); if(!ckDrag)rot('ck-m',(m+s/60)*6); rot('ck-s',s*6);
 }
 setInterval(ckDraw,1000);
 function ckMode(on){
-  ckSet=on; var o=$('ck-opt'); o.textContent=on?'✓':'○'; o.className=on?'on':'';
-  $('ck-ctl').style.display=on?'flex':'none';
+  ckSet=on;
+  $('ck-ok').style.display=on?'block':'none';
   if(on){var d=new Date();ckH=d.getHours();ckM=d.getMinutes();}
   ckDraw();
 }
 function ckTryOk(){
   if(hash(ckNorm(ckH,ckM))===ls('dc_ck')){ unlockApp(); }
-  else { var dg=$('ck-dig'); dg.style.color='#ff6b6b'; setTimeout(function(){dg.style.color='';},500); }
 }
-$('ck-opt').onclick=function(){ckMode(!ckSet)};
+$('ck-o').onclick=function(e){e.stopPropagation();ckMode(!ckSet)};
+$('ck-ok').onclick=ckTryOk;
 var ckDrag=null;
 function ckAngle(ev,svg){
   var r=svg.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
@@ -618,23 +666,12 @@ function ckAngle(ev,svg){
     var a=ckAngle(ev,svg);
     if(ckDrag==='m'){ ckM=Math.round(a/6)%60; rot('ck-m',ckM*6); }
     else { var h12=Math.round(a/30)%12; ckH=h12+(ckH>=12?12:0); rot('ck-h',((ckH%12)+ckM/60)*30); }
-    $('ck-dig').textContent=pad2(ckH)+':'+pad2(ckM);
+    $('ck-dig').textContent=pad2(ckH%12||12)+':'+pad2(ckM);
   });
   function up(){ckDrag=null;}
   svg.addEventListener('pointerup',up); svg.addEventListener('pointerleave',up); svg.addEventListener('pointercancel',up);
 })();
 
-function hold(id,fn){
-  var b=$(id),t1=null,t2=null;
-  function stop(){clearTimeout(t1);clearInterval(t2);}
-  b.addEventListener('pointerdown',function(e){e.preventDefault();fn();t1=setTimeout(function(){t2=setInterval(fn,90);},400);});
-  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,stop);});
-}
-hold('hp',function(){ckH=(ckH+1)%24;ckDraw();});
-hold('hm',function(){ckH=(ckH+23)%24;ckDraw();});
-hold('mp',function(){ckM=(ckM+1)%60;ckDraw();});
-hold('mm',function(){ckM=(ckM+59)%60;ckDraw();});
-$('ck-ok').onclick=ckTryOk;
 function lockNow(){
   if(!lockOn())return;
   $('lock').style.display='flex'; ckMode(false);
@@ -652,7 +689,7 @@ function askTime(msg){
 }
 function setPin(){
   var t=askTime('Clock password time likho'); if(!t)return;
-  ls('dc_ck',hash(t)); alert('Clock lock lag gaya. Ab app khulne par clock nazar aaye gi. Side ke ○ ko tick karke time '+t+' par lao to app khul jaye gi.');
+  ls('dc_ck',hash(t)); alert('Clock lock lag gaya. Ab app khulne par clock nazar aaye gi. Neeche likhe Clock ke "o" ko dabao, phir clock ki soiyan (hands) ghuma kar time '+t+' par lao aur OK dabao to app khul jaye gi.');
 }
 function removePin(){
   var t=askTime('Lock hatane ke liye purana clock password likho'); if(!t)return;
@@ -666,6 +703,11 @@ $('more').onclick=function(e){
     items.push({t:'🕒 Clock password badlo',f:function(){var t=askTime('Purana clock password likho');if(!t)return;if(hash(t)===ls('dc_ck'))setPin();else alert('Galat time');}});
     items.push({t:'🔓 Lock hatao',f:removePin});
   } else items.push({t:'🕒 Clock password lagao',f:setPin});
+  if(sqSet()){
+    items.push({t:'🙈 Chat emoji karo',f:function(){maskApply(true)}});
+    items.push({t:'🔎 Search secret code badlo',f:function(){askOldSq(setSq)}});
+    items.push({t:'🔎 Search secret code hatao',f:function(){askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');})}});
+  } else items.push({t:'🔎 Search secret code lagao',f:setSq});
   items.push({t:ls('dc_dark')==='1'?'☀️ Light mode':'🌙 Dark mode',f:function(){ls('dc_dark',ls('dc_dark')==='1'?'0':'1');applyDark();}});
   items.push({t:'🧹 Chat saaf karo',f:function(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};stopPlayers();render();} }});
   items.push({t:ls('dc_vhide')==='1'?'🔓 Video call wapas lao':'🙈 Video call chupao',f:function(){
@@ -679,9 +721,23 @@ $('more').onclick=function(e){
 
 /* ---------- mobile privacy wipe + auto lock ---------- */
 var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-function wipe(){ stopRec(true); if(!isMobile)return; stopPlayers(); all={}; seen={}; edits={}; dels={}; dlv={}; reacts={}; hidden={}; replyTo=null; editing=null; updateBar(); var b=$('msgs'); if(b)b.textContent=''; var i=$('in'); if(i)i.value=''; }
-document.addEventListener('visibilitychange',function(){ if(document.hidden){wipe();lockNow();} else if(!lockOn()||$('lock').style.display!=='flex')seenAll(); });
-window.addEventListener('pagehide',function(){wipe();lockNow();});
+/* chat ab delete nahi hoti, minimize par sirf emoji ban jati hai (agar secret code laga ho) */
+/* ---------- recent apps (3-line) mein kaali screen ---------- */
+var coverT=null;
+function coverOn(){
+  $('cover').style.display='block';
+  if(!coverT)coverT=setInterval(function(){ if(document.visibilityState==='visible'&&document.hasFocus())coverOff(); },500);
+}
+function coverOff(){
+  $('cover').style.display='none';
+  if(coverT){clearInterval(coverT);coverT=null;}
+}
+$('cover').addEventListener('pointerdown',function(){ if(document.visibilityState==='visible')coverOff(); });
+window.addEventListener('blur',coverOn);
+window.addEventListener('focus',function(){ if(document.visibilityState==='visible')coverOff(); });
+window.addEventListener('pageshow',function(){ if(document.visibilityState==='visible')coverOff(); });
+document.addEventListener('visibilitychange',function(){ if(document.hidden){coverOn();hideChat();lockNow();} else { coverOff(); if(!lockOn()||$('lock').style.display!=='flex')seenAll(); } });
+window.addEventListener('pagehide',function(){coverOn();hideChat();lockNow();});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 $('go').onclick=start;
 var EMOJIS='😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😎 🤩 🥳 😏 😒 😞 😔 😢 😭 😤 😡 🤯 😱 😴 🤔 🙄 😬 🤗 🙏 👍 👎 👏 🙌 💪 👌 🤝 ❤️ 💔 🔥 ✨ 🎉 🎂 🌹 ☕ 🍕 🙈 😜 🤪 🥺 😌 😷 🤒';
