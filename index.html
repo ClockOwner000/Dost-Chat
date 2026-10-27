@@ -151,8 +151,8 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 #ck-o{display:inline-block;padding:14px 4px;margin:-14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 
 /* video call */
-#vcall{background:none;border:0;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%}
-#vcall:active{background:rgba(255,255,255,.15)}
+#vcall,#acall{background:none;border:0;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%}
+#vcall:active,#acall:active{background:rgba(255,255,255,.15)}
 #ringbar{display:none;position:fixed;left:10px;right:10px;top:max(10px,env(safe-area-inset-top));z-index:120;background:#1c2530;color:#fff;border-radius:14px;padding:10px 12px;align-items:center;justify-content:space-between;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 #ringbar .rb-txt small{display:block;opacity:.7;font-size:12px}
 .rb-btns{display:flex;gap:8px}
@@ -175,6 +175,7 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 <header>
   <div class="av" id="avt">💬</div>
   <div class="hd"><b id="ttl">Dost Chat</b><small id="st"></small></div>
+  <button id="acall" aria-label="Voice call">📞</button>
   <button id="vcall" aria-label="Video call">📹</button>
   <button id="more" aria-label="Settings">⋮</button>
 </header>
@@ -197,7 +198,7 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
     <div class="pill"><button id="emo" aria-label="Emoji">😊</button><input id="in" placeholder="Message likho…" autocomplete="off"><button id="att" aria-label="Photo">📎</button></div>
     <button id="send">➤</button>
   </footer>
-  <input type="file" id="fi" accept="image/*" hidden>
+  <input type="file" id="fi" accept="image/*,video/*" hidden>
 </div>
 
 <div id="menu"></div>
@@ -221,7 +222,7 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 <div id="cover"></div>
 
 <div id="ringbar">
-  <div class="rb-txt"><b id="rb-name"></b><small>Video call aa rahi hai</small></div>
+  <div class="rb-txt"><b id="rb-name"></b><small id="rb-sm">Video call aa rahi hai</small></div>
   <div class="rb-btns"><button id="rb-dec" class="rb-x">✕</button><button id="rb-acc" class="rb-ok">📹</button></div>
 </div>
 
@@ -245,6 +246,51 @@ var cid=ls('dc_cid'); if(!cid){cid=Math.random().toString(36).slice(2,10); ls('d
 
 var all={}, seen={}, sentSeen={}, edits={}, dels={}, typers={}, dlv={}, reacts={}, hidden={}, peer=null;
 var client=null, base='', myName='', conn='', replyTo=null, editing=null, lastTyping=0;
+
+/* ---------- chat history is device par save hoti hai (IndexedDB) ---------- */
+var DB=null, saveT=null, histKey='';
+function dbOpen(cb){
+  if(DB)return cb(DB);
+  try{
+    var r=indexedDB.open('dostchat',1);
+    r.onupgradeneeded=function(){r.result.createObjectStore('kv');};
+    r.onsuccess=function(){DB=r.result;cb(DB);};
+    r.onerror=function(){cb(null);};
+  }catch(e){cb(null);}
+}
+function dbPut(k,v){ dbOpen(function(d){ if(!d)return; try{d.transaction('kv','readwrite').objectStore('kv').put(v,k);}catch(e){} }); }
+function dbGet(k,cb){ dbOpen(function(d){ if(!d)return cb(null); try{ var q=d.transaction('kv').objectStore('kv').get(k); q.onsuccess=function(){cb(q.result||null)}; q.onerror=function(){cb(null)}; }catch(e){cb(null);} }); }
+function dbDel(k){ dbOpen(function(d){ if(!d)return; try{d.transaction('kv','readwrite').objectStore('kv').delete(k);}catch(e){} }); }
+function saveHist(){
+  if(!histKey)return;
+  var ids=Object.keys(all).sort(function(a,b){return all[b].ts-all[a].ts}), keep={}, size=0, n=0;
+  for(var i=0;i<ids.length;i++){
+    var m=all[ids[i]];
+    size+=(m.img?m.img.length:0)+(m.audio?m.audio.length:0)+(m.video?m.video.length:0)+String(m.text||'').length+300;
+    if(++n>5000||size>80e6)break;
+    keep[ids[i]]=m;
+  }
+  dbPut(histKey,{all:keep,hidden:hidden,edits:edits,dels:dels,reacts:reacts,seen:seen,dlv:dlv});
+}
+function scheduleSave(){ if(!histKey||saveT)return; saveT=setTimeout(function(){saveT=null;saveHist();},800); }
+function loadHist(cb){
+  dbGet('h:'+base,function(st){
+    try{
+      if(st){
+        Object.keys(st.all||{}).forEach(function(i){ if(!all[i])all[i]=st.all[i]; });
+        Object.keys(st.hidden||{}).forEach(function(i){ hidden[i]=1; });
+        Object.keys(st.edits||{}).forEach(function(i){ if(!edits[i])edits[i]=st.edits[i]; });
+        Object.keys(st.dels||{}).forEach(function(i){ if(!dels[i])dels[i]=st.dels[i]; });
+        Object.keys(st.seen||{}).forEach(function(i){ seen[i]=1; });
+        Object.keys(st.dlv||{}).forEach(function(i){ dlv[i]=1; });
+        Object.keys(st.reacts||{}).forEach(function(i){ reacts[i]=reacts[i]||{}; Object.keys(st.reacts[i]).forEach(function(c){ if(!reacts[i][c])reacts[i][c]=st.reacts[i][c]; }); });
+      }
+    }catch(e){}
+    histKey='h:'+base; cb();
+  });
+}
+document.addEventListener('visibilitychange',function(){ if(document.hidden)saveHist(); });
+window.addEventListener('pagehide',saveHist);
 
 /* ---------- helpers ---------- */
 function clip(s,n){s=String(s||'');return s.length>n?s.slice(0,n)+'…':s}
@@ -309,8 +355,9 @@ setInterval(setStatus,1000);
 
 /* ---------- render ---------- */
 function render(keepScroll){
+  scheduleSave();
   var box=$('msgs'), atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80, oldTop=box.scrollTop;
-  var list=Object.keys(all).map(function(k){return all[k]}).sort(function(a,b){return a.ts-b.ts}).slice(-150);
+  var list=Object.keys(all).map(function(k){return all[k]}).sort(function(a,b){return a.ts-b.ts}).slice(-400);
   box.textContent='';
   var en=document.createElement('div');en.className='enc';en.textContent='🔒 Is chat ke messages sirf wahi dekh sakte hain jinke paas chat code hai.';box.appendChild(en);
   var prev=null;
@@ -333,9 +380,14 @@ function render(keepScroll){
     }
     if(v.img&&!isDel&&maskOn){var ph=document.createElement('span');ph.className='tx';ph.textContent='🖼️';el.appendChild(ph);}
     else if(v.img&&!isDel){var im=document.createElement('img');im.className='mi';im.src=v.img;im.onclick=function(e){e.stopPropagation();$('iv').firstElementChild.src=v.img;$('iv').style.display='flex'};el.appendChild(im);}
+    if(v.vn&&!isDel){
+      if(maskOn){var pm=document.createElement('span');pm.className='tx';pm.textContent='🎬';el.appendChild(pm);}
+      else if(v.video){var vd=document.createElement('video');vd.className='mi';vd.src=v.video;vd.controls=true;vd.playsInline=true;vd.preload='metadata';vd.onclick=function(e){e.stopPropagation()};el.appendChild(vd);}
+      else{var pw=document.createElement('span');pw.className='tx';pw.textContent=(Date.now()-v.ts>120000)?'📹 Video poori nahi aayi':'📹 Video aa rahi hai…';el.appendChild(pw);}
+    }
     if(v.audio&&!isDel&&maskOn){ var pv=document.createElement('span');pv.className='tx';pv.textContent='🎤🎶';el.appendChild(pv); }
     else if(v.audio&&!isDel){ el.appendChild(voiceEl(v)); }
-    else if(!(v.img&&!isDel&&v.text==='📷 Photo')){
+    else if(!(v.img&&!isDel&&v.text==='📷 Photo')&&!(v.vn&&!isDel)){
       var b=document.createElement('span');b.className='tx'+(isDel?' del':'');
       b.textContent=isDel?'🚫 Ye message delete kar diya gaya':(maskOn?maskText(v.text,sd):v.text);
       el.appendChild(b);
@@ -480,8 +532,8 @@ function msgMenu(v,rect){
   if(maskOn)return;
   var its=[{row:['👍','❤️','😂','😮','😢','🙏'],f:function(em){setReact(v.id,em)}},
     {t:'↩️ Reply',f:function(){setReply(v)}}];
-  if(!v.audio&&!(v.img&&v.text==='📷 Photo'))its.push({t:'📋 Copy',f:function(){try{navigator.clipboard.writeText(v.text)}catch(e){}}});
-  if(v.cid===cid&&!v.audio&&!v.img)its.push({t:'✏️ Edit',f:function(){startEdit(v.id)}});
+  if(!v.audio&&!v.video&&!(v.img&&v.text==='📷 Photo'))its.push({t:'📋 Copy',f:function(){try{navigator.clipboard.writeText(v.text)}catch(e){}}});
+  if(v.cid===cid&&!v.audio&&!v.img&&!v.video)its.push({t:'✏️ Edit',f:function(){startEdit(v.id)}});
   its.push({t:'🗑️ Mujhse delete',f:function(){hidden[v.id]=1;render(true)}});
   if(v.cid===cid)its.push({t:'🗑️ Sab ke liye delete',c:'red',f:function(){delMsg(v.id)}});
   showMenu(its,rect);
@@ -577,8 +629,9 @@ function start(){
   ls('dc_name',name); ls('dc_room',room); myName=name;
   $('join').style.display='none'; $('chat').style.display='flex'; conn='connecting…'; setStatus();
   base='dostchat-v1/'+room;
+  loadHist(function(){ render(false); });
   client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:3000,clean:true});
-  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
+  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
   client.on('reconnect',function(){ conn='reconnecting…'; setStatus(); });
   client.on('offline',function(){ conn='offline'; setStatus(); });
   client.on('message',function(topic,payload){
@@ -600,9 +653,10 @@ function start(){
         var m2=all[d.id]; if(m2&&m2.cid===d.cid){m2.deleted=1;render(true);}
       }
       else if(t==='rtc'){ if(d.cid!==cid) rtcHandle(d); }
+      else if(t==='vc'){ vcPart(d); }
       else if(t==='msg'){
-        if(d.cid!==cid){delete typers[d.cid];peer={cid:d.cid,name:d.name,ts:Date.now()};if(!all[d.id]){pub('seen',{cid:cid,dlv:[d.id],ids:[]});notifyMsg();}}
-        merge([d]); setStatus();
+        if(d.cid!==cid){delete typers[d.cid];peer={cid:d.cid,name:d.name,ts:Date.now()};if(!all[d.id]){pub('seen',{cid:cid,dlv:[d.id],ids:[]});}}
+        merge([d]); if(d.vn&&d.cid!==cid)vidDone(d.id); setStatus();
         if(d.cid!==cid && !document.hidden) sendSeen([d.id]);
       }
     }catch(e){}
@@ -709,12 +763,11 @@ $('more').onclick=function(e){
     items.push({t:'🔎 Search secret code hatao',f:function(){askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');})}});
   } else items.push({t:'🔎 Search secret code lagao',f:setSq});
   items.push({t:ls('dc_dark')==='1'?'☀️ Light mode':'🌙 Dark mode',f:function(){ls('dc_dark',ls('dc_dark')==='1'?'0':'1');applyDark();}});
-  items.push({t:'🧹 Chat saaf karo',f:function(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};stopPlayers();render();} }});
+  items.push({t:'🧹 Chat saaf karo',f:function(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};hidden={};edits={};dels={};seen={};dlv={};vids={};stopPlayers();render();} }});
   items.push({t:ls('dc_vhide')==='1'?'🔓 Video call wapas lao':'🙈 Video call chupao',f:function(){
     if(ls('dc_vhide')==='1'){ var p=prompt('Password likho'); if(p===null)return; if(p==='786'){ls('dc_vhide',null);applyVHide();alert('Video call wapas aa gaya');} else alert('Galat password'); }
     else { ls('dc_vhide','1'); applyVHide(); }
   }});
-  items.push({t:Notification && Notification.permission==='granted'?'🔔 Notification on hai':'🔔 Notification on karo',f:enableNotif});
   items.push({t:'🚪 Chat code badlo',f:function(){location.reload()}});
   showMenu(items,$('more').getBoundingClientRect());
 };
@@ -746,6 +799,7 @@ $('emo').onclick=function(){emp.style.display=emp.style.display==='grid'?'none':
 $('att').onclick=function(){ if(client&&client.connected)$('fi').click(); };
 $('fi').onchange=function(){
   var f=this.files[0]; this.value=''; if(!f)return;
+  if(/^video\//.test(f.type)){ sendVideoFile(f); return; }
   var img=new Image(),u=URL.createObjectURL(f);
   img.onload=function(){
     var k=Math.min(1,900/Math.max(img.width,img.height)),c=document.createElement('canvas');
@@ -771,25 +825,27 @@ function newPc(){
   return p;
 }
 function setCallState(t){ $('callstate').textContent=t; }
-async function getMedia(){
-  localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:{facingMode:'user'}});
+async function getMedia(voice){
+  localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:voice?false:{facingMode:'user'}});
   $('localV').srcObject=localStream;
 }
-async function startCall(){
+async function startCall(voice){
+  voice=(voice===true);
   if(!client||!client.connected){alert('Pehle chat connect ho jaye.');return;}
-  try{ await getMedia(); }catch(e){ alert('Camera/mic ki ijazat nahi mili.'); return; }
+  try{ await getMedia(voice); }catch(e){ alert(voice?'Mic ki ijazat nahi mili.':'Camera/mic ki ijazat nahi mili.'); return; }
   pc=newPc();
   localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
+  $('cv-cam').style.display=voice?'none':'';
   callPeerCid=null; callPeerName=peer?peer.name:'';
   $('callview').style.display='block'; setCallState('Call ho rahi hai…');
   var offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-  rtcSend({kind:'offer',cid:cid,name:myName,sdp:offer});
+  rtcSend({kind:'offer',cid:cid,name:myName,voice:voice,sdp:offer});
 }
 function rtcHandle(d){
   if(d.kind==='offer'){
     if(pc){ rtcSend({kind:'busy',cid:cid,to:d.cid}); return; }
     pendingOffer=d; callPeerCid=d.cid; callPeerName=d.name||'Dost';
-    $('rb-name').textContent=callPeerName; $('ringbar').style.display='flex';
+    $('rb-name').textContent=callPeerName; $('rb-sm').textContent=d.voice?'Voice call aa rahi hai':'Video call aa rahi hai'; $('rb-acc').textContent=d.voice?'📞':'📹'; $('ringbar').style.display='flex';
   }
   else if(d.kind==='answer'){ if(pc&&callPeerCid===null){ callPeerCid=d.cid; pc.setRemoteDescription(d.sdp); } }
   else if(d.kind==='ice'){ if(pc&&(callPeerCid===d.cid||callPeerCid===null)) pc.addIceCandidate(d.candidate).catch(function(){}); }
@@ -799,9 +855,10 @@ function rtcHandle(d){
 async function acceptCall(){
   $('ringbar').style.display='none'; var off=pendingOffer; pendingOffer=null;
   if(!off)return;
-  try{ await getMedia(); }catch(e){ alert('Camera/mic ki ijazat nahi mili.'); rtcSend({kind:'end',cid:cid}); return; }
+  try{ await getMedia(!!off.voice); }catch(e){ alert('Camera/mic ki ijazat nahi mili.'); rtcSend({kind:'end',cid:cid}); return; }
   pc=newPc();
   localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
+  $('cv-cam').style.display=off.voice?'none':'';
   $('callview').style.display='block'; setCallState('Jud raha hai…');
   await pc.setRemoteDescription(off.sdp);
   var ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
@@ -815,32 +872,88 @@ function endCall(remoteEnded){
   $('callview').style.display='none'; $('ringbar').style.display='none';
   if(!remoteEnded && callPeerCid!==undefined) rtcSend({kind:'end',cid:cid});
   callPeerCid=null; pendingOffer=null; micOn=true; camOn=true;
-  $('cv-mic').className=''; $('cv-cam').className='';
+  $('cv-mic').className=''; $('cv-cam').className=''; $('cv-cam').style.display='';
 }
-$('vcall').onclick=startCall;
+$('vcall').onclick=function(){startCall(false)};
+$('acall').onclick=function(){startCall(true)};
 $('rb-acc').onclick=acceptCall;
 $('rb-dec').onclick=declineCall;
 $('cv-end').onclick=function(){endCall(false)};
 $('cv-mic').onclick=function(){ micOn=!micOn; if(localStream)localStream.getAudioTracks().forEach(function(t){t.enabled=micOn}); this.className=micOn?'':'off'; };
 $('cv-cam').onclick=function(){ camOn=!camOn; if(localStream)localStream.getVideoTracks().forEach(function(t){t.enabled=camOn}); this.className=camOn?'':'off'; };
 
-/* ---------- hide video call (password 786) ---------- */
-function applyVHide(){ $('vcall').style.display = ls('dc_vhide')==='1' ? 'none' : ''; }
 
-/* ---------- notifications ---------- */
-function enableNotif(){
-  if(!('Notification' in window)){ alert('Is browser mein notifications support nahi hain.'); return; }
-  if(Notification.permission==='granted'){ alert('Notification pehle se on hain.'); return; }
-  Notification.requestPermission().then(function(p){ if(p==='granted')alert('Notification on ho gaye.'); else alert('Ijazat nahi mili.'); });
+/* ---------- video bhejna (chhoti video, 30 second tak) ---------- */
+var vids={};
+function vcPart(p){
+  if(!p||!p.id||p.cid===cid)return;
+  var m=all[p.id]; if(m&&m.video)return;
+  var o=vids[p.id]||(vids[p.id]={n:p.n,parts:{},c:0});
+  if(o.parts[p.i]===undefined){o.parts[p.i]=p.d;o.c++;}
+  vidDone(p.id);
 }
-function notifyMsg(){
-  if(!('Notification' in window) || Notification.permission!=='granted') return;
-  if(!document.hidden) return;
+function vidDone(id){
+  var o=vids[id],m=all[id]; if(!o||!m||o.c<o.n)return;
+  var s=''; for(var i=0;i<o.n;i++){ if(o.parts[i]===undefined)return; s+=o.parts[i]; }
+  m.video=s; delete vids[id]; render(true);
+}
+function sendVideo(dataUrl,dur){
+  var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6), SZ=60000, n=Math.ceil(dataUrl.length/SZ);
+  var msg={id:id,cid:cid,name:myName,text:'🎥 Video',video:dataUrl,vn:n,dur:Math.round(dur),ts:Date.now()};
+  if(replyTo)msg.reply={id:replyTo.id,cid:replyTo.cid,name:replyTo.name,text:clip(replyTo.text,120)};
+  replyTo=null; updateBar();
+  merge([msg]); $('msgs').scrollTop=$('msgs').scrollHeight;
+  if(!client||!client.connected)return;
+  var meta={}; Object.keys(msg).forEach(function(k){ if(k!=='video')meta[k]=msg[k]; });
+  client.publish(base+'/msg',JSON.stringify(meta),{qos:1});
+  var i=0;
+  (function next(){
+    if(i>=n||!client||!client.connected)return;
+    client.publish(base+'/vc',JSON.stringify({id:id,cid:cid,i:i,n:n,d:dataUrl.substr(i*SZ,SZ)}),{qos:1});
+    i++; setTimeout(next,40);
+  })();
+}
+function sendVideoFile(f){
+  var vid=document.createElement('video'), u=URL.createObjectURL(f);
+  vid.preload='auto'; vid.playsInline=true; vid.src=u;
+  vid.onerror=function(){ URL.revokeObjectURL(u); alert('Ye video khul nahi saki.'); };
+  vid.onloadedmetadata=function(){
+    if(!isFinite(vid.duration)||vid.duration>30){ URL.revokeObjectURL(u); alert('Video 30 second se chhoti rakho.'); return; }
+    if(typeof MediaRecorder==='undefined'){ URL.revokeObjectURL(u); alert('Is browser mein video bhejna support nahi.'); return; }
+    compressVideo(vid,u);
+  };
+}
+function compressVideo(vid,u){
+  var btn=$('att'); btn.textContent='⏳'; btn.disabled=true;
+  var k=Math.min(1,360/Math.min(vid.videoWidth,vid.videoHeight)), cw=Math.max(2,Math.round(vid.videoWidth*k/2)*2), ch=Math.max(2,Math.round(vid.videoHeight*k/2)*2);
+  var c=document.createElement('canvas'); c.width=cw; c.height=ch; var g=c.getContext('2d');
+  var stream=c.captureStream(24), ac=null, tm=null, iv=null, finished=false, chunks=[];
   try{
-    var n=new Notification('Clock',{body:'Naya message aaya',icon:'icon-192.png',tag:'dc-msg'});
-    n.onclick=function(){ window.focus(); n.close(); };
+    ac=new (window.AudioContext||window.webkitAudioContext)(); ac.resume();
+    var src=ac.createMediaElementSource(vid), dst=ac.createMediaStreamDestination(); src.connect(dst);
+    dst.stream.getAudioTracks().forEach(function(t){stream.addTrack(t)});
   }catch(e){}
+  var mt=''; ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4'].forEach(function(t){ if(!mt&&MediaRecorder.isTypeSupported(t))mt=t; });
+  var mr;
+  try{ mr=new MediaRecorder(stream,mt?{mimeType:mt,videoBitsPerSecond:250000,audioBitsPerSecond:32000}:{videoBitsPerSecond:250000}); }
+  catch(e){ btn.textContent='📎'; btn.disabled=false; URL.revokeObjectURL(u); alert('Video taiyar nahi ho saki.'); return; }
+  function reset(){ btn.textContent='📎'; btn.disabled=false; clearInterval(iv); clearTimeout(tm); URL.revokeObjectURL(u); try{ac&&ac.close()}catch(e){} }
+  mr.ondataavailable=function(e){ if(e.data&&e.data.size)chunks.push(e.data); };
+  mr.onstop=function(){
+    reset();
+    var blob=new Blob(chunks,{type:mr.mimeType||'video/webm'});
+    if(blob.size>2e6){ alert('Video bohot bari hai. Chhoti video bhejo.'); return; }
+    var fr=new FileReader(); fr.onload=function(){ sendVideo(fr.result,vid.duration); }; fr.readAsDataURL(blob);
+  };
+  function finish(){ if(finished)return; finished=true; try{vid.pause()}catch(e){} try{mr.stop()}catch(e){ reset(); } }
+  vid.onended=finish;
+  tm=setTimeout(finish,(vid.duration+4)*1000);
+  mr.start(500);
+  vid.play().then(function(){ iv=setInterval(function(){ try{g.drawImage(vid,0,0,cw,ch)}catch(e){} },42); }).catch(function(){ finished=true; try{mr.stop()}catch(e){} reset(); alert('Video chalane ki ijazat nahi mili.'); });
 }
+
+/* ---------- hide video call (password 786) ---------- */
+function applyVHide(){ var h=ls('dc_vhide')==='1'?'none':''; $('vcall').style.display=h; $('acall').style.display=h; }
 
 /* ---------- keyboard overlap fix ---------- */
 (function(){
@@ -860,39 +973,6 @@ applyVHide();
 applyDark();
 updIcon();
 lockNow();
-
-/* ---------- web push ---------- */
-var PUSH_URL='https://dostchat-push.rehmantime201921.workers.dev';
-var PUSH_KEY='BN-kB-2XMOlegMOBHCcLG8N_U3OnB0El20Umw9sNzwQNH5POTZ5Uc9GzyHfrTgkv7Q7Z9JKHRkru-ghTWk6GSvc';
-var pushDone='';
-function u8(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var r=atob(s),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a;}
-function trySub(){
-  if(!myName||!('serviceWorker' in navigator)||!('PushManager' in window))return;
-  if(!('Notification' in window)||Notification.permission!=='granted')return;
-  var room=ls('dc_room'); if(!room||pushDone===room)return;
-  pushDone=room;
-  navigator.serviceWorker.ready.then(function(reg){
-    return reg.pushManager.getSubscription().then(function(s){
-      return s||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(PUSH_KEY)});
-    });
-  }).then(function(s){
-    return fetch(PUSH_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,cid:cid,sub:s.toJSON()})});
-  }).catch(function(){pushDone='';});
-}
-setInterval(trySub,5000);
-function pingPush(){
-  var room=ls('dc_room'); if(!room)return;
-  fetch(PUSH_URL+'/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,cid:cid})}).catch(function(){});
-}
-function wrapSend(name){
-  var f=window[name];
-  window[name]=function(){
-    var n=Object.keys(all).length;
-    f.apply(this,arguments);
-    if(Object.keys(all).length>n)pingPush();
-  };
-}
-wrapSend('send'); wrapSend('sendImage'); wrapSend('sendVoice');
 </script>
 </body>
 </html>

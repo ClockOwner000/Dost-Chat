@@ -1,29 +1,13 @@
-self.addEventListener('install', function (e) { self.skipWaiting(); });
-self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
-
-/* Chrome ko install ke liye fetch handler chahiye hota hai (kuch nahi badalta) */
-self.addEventListener('fetch', function (e) {});
-
-self.addEventListener('push', function (e) {
-  e.waitUntil(
-    self.registration.showNotification('Clock', {
-      body: 'Naya message aaya',
-      icon: 'icon-192.png',
-      badge: 'icon-192.png',
-      tag: 'dc-msg',
-      renotify: true
-    })
-  );
+// Clock: is service worker mein koi notification / push nahi hai.
+self.addEventListener('install', function(){ self.skipWaiting(); });
+self.addEventListener('activate', function(e){
+  e.waitUntil((async function(){
+    try{
+      var sub = await self.registration.pushManager.getSubscription();
+      if(sub) await sub.unsubscribe();   // purani push subscription band
+    }catch(err){}
+    try{ var ks = await caches.keys(); await Promise.all(ks.map(function(k){return caches.delete(k)})); }catch(err){}
+    await self.clients.claim();
+  })());
 });
-
-self.addEventListener('notificationclick', function (e) {
-  e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
-      for (var i = 0; i < list.length; i++) {
-        if ('focus' in list[i]) return list[i].focus();
-      }
-      if (self.clients.openWindow) return self.clients.openWindow('./');
-    })
-  );
-});
+self.addEventListener('fetch', function(){ /* network se seedha chalega */ });
