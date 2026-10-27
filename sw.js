@@ -1,6 +1,9 @@
 self.addEventListener('install', function (e) { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
 
+/* Chrome ko install ke liye fetch handler chahiye hota hai (kuch nahi badalta) */
+self.addEventListener('fetch', function (e) {});
+
 self.addEventListener('push', function (e) {
   e.waitUntil(
     self.registration.showNotification('Clock', {
