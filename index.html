@@ -860,6 +860,39 @@ applyVHide();
 applyDark();
 updIcon();
 lockNow();
+
+/* ---------- web push ---------- */
+var PUSH_URL='https://dostchat-push.rehmantime201921.workers.dev';
+var PUSH_KEY='BN-kB-2XMOlegMOBHCcLG8N_U3OnB0El20Umw9sNzwQNH5POTZ5Uc9GzyHfrTgkv7Q7Z9JKHRkru-ghTWk6GSvc';
+var pushDone='';
+function u8(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var r=atob(s),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a;}
+function trySub(){
+  if(!myName||!('serviceWorker' in navigator)||!('PushManager' in window))return;
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  var room=ls('dc_room'); if(!room||pushDone===room)return;
+  pushDone=room;
+  navigator.serviceWorker.ready.then(function(reg){
+    return reg.pushManager.getSubscription().then(function(s){
+      return s||reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(PUSH_KEY)});
+    });
+  }).then(function(s){
+    return fetch(PUSH_URL+'/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,cid:cid,sub:s.toJSON()})});
+  }).catch(function(){pushDone='';});
+}
+setInterval(trySub,5000);
+function pingPush(){
+  var room=ls('dc_room'); if(!room)return;
+  fetch(PUSH_URL+'/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,cid:cid})}).catch(function(){});
+}
+function wrapSend(name){
+  var f=window[name];
+  window[name]=function(){
+    var n=Object.keys(all).length;
+    f.apply(this,arguments);
+    if(Object.keys(all).length>n)pingPush();
+  };
+}
+wrapSend('send'); wrapSend('sendImage'); wrapSend('sendVoice');
 </script>
 </body>
 </html>
