@@ -158,10 +158,10 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 #setp .tx small{display:block;color:#667781;font-size:12.5px;margin-top:2px;line-height:1.3}
 #setp .red .tx b{color:#d32f2f}
 #setp .go{color:#8696a0;font-size:20px;flex:none}
-#setp .sw{width:44px;height:25px;border-radius:13px;background:#b6bdc1;position:relative;flex:none;transition:background .2s}
-#setp .sw:after{content:'';position:absolute;left:2px;top:2px;width:21px;height:21px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-#setp .sw.on{background:#00a884}
-#setp .sw.on:after{left:21px}
+#setp .pb{min-width:58px;text-align:center;padding:7px 14px;border-radius:15px;font-size:13px;font-weight:700;letter-spacing:.4px;flex:none;color:#fff;background:#e53935;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+#setp .pb.on{background:#1faa59}
+#setp .pb.act{background:#e9edef;color:#111b21;box-shadow:none}
+#setp .red .pb.act{color:#d32f2f}
 #setp .seg{display:flex;gap:8px;padding:2px 14px 13px 52px;border-bottom:1px solid #eef0f2}
 #setp .seg span{padding:6px 15px;border-radius:16px;background:#e9edef;font-size:13px}
 #setp .seg span.a{background:#00a884;color:#fff}
@@ -174,8 +174,8 @@ body.dark #setp .row:active{background:#2a3942}
 body.dark #setp .tx small{color:#8696a0}
 body.dark #setp .seg span{background:#2a3942;color:#e9edef}
 body.dark #setp .seg span.a{background:#00a884;color:#fff}
-body.dark #setp .sw{background:#4a5b64}
-body.dark #setp .sw.on{background:#00a884}
+body.dark #setp .pb.act{background:#2a3942;color:#e9edef}
+body.dark #setp .red .pb.act{color:#ff8a80}
 
 /* recent-apps cover */
 #cover{display:none;position:fixed;inset:0;z-index:9999;background:#000}
@@ -805,41 +805,46 @@ function vhideToggle(){
 function clearChatAsk(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};hidden={};edits={};dels={};seen={};dlv={};vids={};stopPlayers();render();} }
 function stGroups(){
   function T(ic,t,sub,on,f){return {k:'t',ic:ic,t:t,s:sub,on:on,f:f};}
-  function A(ic,t,sub,f,red){return {k:'a',ic:ic,t:t,s:sub,f:f,red:red};}
+  function A(ic,t,sub,f,lbl,red){return {k:'a',ic:ic,t:t,s:sub,f:f,lbl:lbl,red:red};}
   var sec=[], idle=idleSecs();
   sec.push(T('🕒','Clock lock','App khulne par clock nazar aaye, sahi time par hi khule',lockOn(),function(){ if(lockOn())removePin(); else setPin(); }));
   if(lockOn()){
-    sec.push(A('🔁','Clock password badlo','',function(){var t=askTime('Purana clock password likho');if(!t)return;if(hash(t)===ls('dc_ck'))setPin();else alert('Galat time');}));
-    sec.push(A('🔒','Abhi lock karo','',function(){closeSettings();lockNow();}));
+    sec.push(A('🔁','Clock password badlo','',function(){var t=askTime('Purana clock password likho');if(!t)return;if(hash(t)===ls('dc_ck'))setPin();else alert('Galat time');},'Badlo'));
+    sec.push(A('🔒','Abhi lock karo','',function(){closeSettings();lockNow();},'Lock'));
   }
   sec.push(T('🔎','Search secret code','Minimize par chat emoji ban jaye, Search mein code likhne par wapas aaye',sqSet(),function(){ if(sqSet())askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');}); else setSq(); }));
   if(sqSet()){
-    sec.push(A('🔑','Search secret code badlo','',function(){askOldSq(setSq);}));
-    sec.push(A('😀','Chat abhi emoji karo','',function(){closeSettings();maskApply(true);}));
+    sec.push(A('🔑','Search secret code badlo','',function(){askOldSq(setSq);},'Badlo'));
+    sec.push(A('😀','Chat abhi emoji karo','',function(){closeSettings();maskApply(true);},'Emoji'));
   }
   sec.push(T('⬛','Recent apps mein kaali screen','App minimize karne par 3-line preview kaala dikhe',covEnabled(),function(){ ls('dc_cov',covEnabled()?'0':'1'); }));
   sec.push(T('🕶','Auto black screen','Kuch na chhoo to screen kaali ho jaye, tap par wapas',idle>0,function(){ ls('dc_idle',idle>0?'0':'10'); idleBump(); }));
-  if(idle>0)sec.push({k:'s',vals:[5,10,30],cur:idle,f:function(v){ ls('dc_idle',String(v)); idleBump(); }});
+  if(idle>0)sec.push({k:'s',vals:[2,5,10,30],cur:idle,f:function(v){ ls('dc_idle',String(v)); idleBump(); }});
   sec.push(T('📵','Video / Voice call button chupao','Header se call ke icon hata do (password se wapas aate hain)',ls('dc_vhide')==='1',vhideToggle));
   return [
     ['Privacy aur Security',sec],
     ['Notifications',[
       T('🔔','Notification','App minimize ho to naye message par notification',notifOn(),function(){ if(notifOn())ls('dc_notif',null); else enableNotif(); }),
       T('📲','Band app par notification','App band hone par bhi push (ntfy)',ntfyOn(),function(){ ls('dc_ntfy',ntfyOn()?'0':'1'); if(ntfyOn())ntfyGuide(); }),
-      A('🔗','ntfy topic / setup','Apna topic dekho aur subscribe karo',ntfyGuide)
+      A('✏️','Push ka title aur text badlo','Dost ko jo notification mile uska title/text (abhi: '+(ls('dc_ntitle')||'Clock')+' / '+(ls('dc_nmsg')||'Naya message')+')',function(){
+        var a=prompt('Notification ka title likho',ls('dc_ntitle')||'Clock'); if(a===null)return;
+        var b=prompt('Notification ka text likho',ls('dc_nmsg')||'Naya message'); if(b===null)return;
+        ls('dc_ntitle',a.trim()||null); ls('dc_nmsg',b.trim()||null);
+      }),
+      A('🔗','ntfy topic / setup','Apna topic dekho aur subscribe karo',ntfyGuide,'Dekho')
     ]],
     ['Connection',[
       T('🔆','Screen on rakho','Chat khuli ho to screen band na ho (connection na toote)',wakeOn(),wakeToggle)
     ]],
     ['Calls aur Media',[
-      A('🎤','Mic / Camera ijazat check','Mic ya camera na chale to yahan se check karo',permCheck)
+      A('🎤','Mic / Camera ijazat check','Mic ya camera na chale to yahan se check karo',permCheck,'Check')
     ]],
     ['Display',[
       T('🌙','Dark mode','',ls('dc_dark')==='1',function(){ ls('dc_dark',ls('dc_dark')==='1'?'0':'1'); applyDark(); })
     ]],
     ['Chat',[
-      A('🚪','Chat code badlo','Doosre chat code mein jao',function(){location.reload();}),
-      A('🧹','Chat saaf karo','Sirf is device se saari chat hatao',clearChatAsk,true)
+      A('🚪','Chat code badlo','Doosre chat code mein jao',function(){location.reload();},'Badlo'),
+      A('🧹','Chat saaf karo','Sirf is device se saari chat hatao',clearChatAsk,'Saaf',true)
     ]]
   ];
 }
@@ -866,8 +871,10 @@ function renderSettings(){
       var b=document.createElement('b'); b.textContent=it.t; tx.appendChild(b);
       if(it.s){ var sm=document.createElement('small'); sm.textContent=it.s; tx.appendChild(sm); }
       r.appendChild(ic); r.appendChild(tx);
-      if(it.k==='t'){ var sw=document.createElement('div'); sw.className='sw'+(it.on?' on':''); r.appendChild(sw); }
-      else { var gg=document.createElement('span'); gg.className='go'; gg.textContent='›'; r.appendChild(gg); }
+      var pb=document.createElement('div');
+      if(it.k==='t'){ pb.className='pb'+(it.on?' on':''); pb.textContent=it.on?'ON':'OFF'; }
+      else { pb.className='pb act'; pb.textContent=it.lbl||'Kholo'; }
+      r.appendChild(pb);
       r.onclick=function(){ try{ it.f(); }catch(e){} renderSettings(); };
       card.appendChild(r);
     });
@@ -879,7 +886,6 @@ function openSettings(){ hideMenu(); renderSettings(); $('setp').style.display='
 $('more').onclick=function(e){
   e.stopPropagation();
   var items=[{t:'⚙️ Settings',f:openSettings}];
-  if(lockOn())items.push({t:'🔒 Abhi lock karo',f:lockNow});
   showMenu(items,$('more').getBoundingClientRect());
 };
 
@@ -1062,14 +1068,16 @@ function relayText(text,id){
   if(id){ if(pushedIds[id])return; pushedIds[id]=1; }
   var pn=peerNameNow(); if(!pn)return;
   ntfyTopic(pn,function(t){
-    try{ fetch('https://ntfy.sh/'+t+'?title=Clock&priority=5',{method:'POST',body:text,mode:'no-cors',keepalive:true}).catch(function(){}); }catch(e){}
+    var base0=location.origin+location.pathname.replace(/[^\/]*$/,'');
+    var q='?priority=5&title='+encodeURIComponent(ls('dc_ntitle')||'Clock')+'&icon='+encodeURIComponent(base0+'icon-192.png')+'&click='+encodeURIComponent(location.origin+location.pathname);
+    try{ fetch('https://ntfy.sh/'+t+q,{method:'POST',body:text,mode:'no-cors',keepalive:true}).catch(function(){}); }catch(e){}
   });
 }
 function relayPush(raw){
   if(!ntfyOn())return;
   var d; try{ d=JSON.parse(raw); }catch(e){ return; }
   if(!d||!d.id||d.cid!==cid)return;
-  relayText('Naya message',d.id);
+  relayText(ls('dc_nmsg')||'Naya message',d.id);
 }
 function ntfyCopy(t,btn){
   try{ navigator.clipboard.writeText(t).then(function(){btn.textContent='Copy ho gaya ✔';}); }
