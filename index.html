@@ -139,6 +139,44 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 #menu div:active{background:#f0f2f5}
 #menu .red{color:#d32f2f}
 
+
+/* settings page */
+#setp{display:none;position:fixed;left:0;top:0;right:0;bottom:0;z-index:60;background:#f0f2f5;flex-direction:column;color:#111b21}
+#setp .sh{background:#008069;color:#fff;display:flex;align-items:center;gap:6px;padding:10px 8px;padding-top:max(10px,env(safe-area-inset-top))}
+#setp .sh button{background:none;border:0;color:#fff;font-size:26px;width:42px;height:42px;border-radius:50%;line-height:1}
+#setp .sh button:active{background:rgba(255,255,255,.15)}
+#setp .sh b{font-size:19px;font-weight:600}
+#setp .sb{flex:1;overflow:auto;padding:4px 0 40px;-webkit-overflow-scrolling:touch}
+#setp h4{margin:18px 18px 7px;font-size:12.5px;letter-spacing:.6px;color:#008069;text-transform:uppercase;font-weight:700}
+#setp .card{background:#fff;margin:0 10px;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.07)}
+#setp .row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid #eef0f2}
+#setp .row:active{background:#f5f6f6}
+#setp .card>:last-child{border-bottom:0}
+#setp .ic{font-size:20px;width:26px;text-align:center;flex:none}
+#setp .tx{flex:1;min-width:0}
+#setp .tx b{display:block;font-weight:500;font-size:15.5px}
+#setp .tx small{display:block;color:#667781;font-size:12.5px;margin-top:2px;line-height:1.3}
+#setp .red .tx b{color:#d32f2f}
+#setp .go{color:#8696a0;font-size:20px;flex:none}
+#setp .sw{width:44px;height:25px;border-radius:13px;background:#b6bdc1;position:relative;flex:none;transition:background .2s}
+#setp .sw:after{content:'';position:absolute;left:2px;top:2px;width:21px;height:21px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#setp .sw.on{background:#00a884}
+#setp .sw.on:after{left:21px}
+#setp .seg{display:flex;gap:8px;padding:2px 14px 13px 52px;border-bottom:1px solid #eef0f2}
+#setp .seg span{padding:6px 15px;border-radius:16px;background:#e9edef;font-size:13px}
+#setp .seg span.a{background:#00a884;color:#fff}
+body.dark #setp{background:#0b141a;color:#e9edef}
+body.dark #setp .sh{background:#202c33}
+body.dark #setp h4{color:#00a884}
+body.dark #setp .card{background:#202c33;box-shadow:none}
+body.dark #setp .row,body.dark #setp .seg{border-color:#2a3942}
+body.dark #setp .row:active{background:#2a3942}
+body.dark #setp .tx small{color:#8696a0}
+body.dark #setp .seg span{background:#2a3942;color:#e9edef}
+body.dark #setp .seg span.a{background:#00a884;color:#fff}
+body.dark #setp .sw{background:#4a5b64}
+body.dark #setp .sw.on{background:#00a884}
+
 /* recent-apps cover */
 #cover{display:none;position:fixed;inset:0;z-index:9999;background:#000}
 /* lock */
@@ -202,6 +240,7 @@ body.dark #join input{background:#2a3942;color:#e9edef;border-color:#2a3942}
 </div>
 
 <div id="menu"></div>
+<div id="setp"></div>
 <div id="iv"><img alt=""></div>
 
 <div id="lock">
@@ -316,7 +355,7 @@ function maskApply(on){
   if(on){ stopPlayers(); cancelBar(); hideMenu(); $('iv').style.display='none'; $('emp').style.display='none'; $('in').value=''; updIcon(); }
   setStatus(); render(false);
 }
-function hideChat(){ stopRec(true); if(sqSet()&&!maskOn)maskApply(true); }
+function hideChat(){ closeSettings(); stopRec(true); if(sqSet()&&!maskOn)maskApply(true); }
 function setSq(){
   var c=prompt('Search ka secret code likho (kam se kam 3 akshar)'); if(c===null)return;
   c=c.trim().toLowerCase();
@@ -633,9 +672,10 @@ function start(){
   $('join').style.display='none'; $('chat').style.display='flex'; conn='connecting…'; setStatus();
   base='dostchat-v1/'+room;
   loadHist(function(){ render(false); });
-  client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:2000,connectTimeout:10000,keepalive:20,resubscribe:true,clean:true});
+  setTimeout(ntfyFirstRun,2500);
+  client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:2000,connectTimeout:10000,keepalive:20,resubscribe:true,clean:false,clientId:'dc_'+cid});
   var _pub0=client.publish; client.publish=function(tp){ try{ if(tp===base+'/msg')relayPush(arguments[1]); }catch(e){} return _pub0.apply(client,arguments); };
-  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
+  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe(base+'/msg',{qos:1}); client.subscribe([base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
   client.on('reconnect',function(){ conn='reconnecting…'; setStatus(); });
   client.on('offline',function(){ conn='offline'; setStatus(); });
   client.on('error',function(){});
@@ -733,7 +773,7 @@ function ckAngle(ev,svg){
 
 function lockNow(){
   if(!lockOn())return;
-  $('lock').style.display='flex'; ckMode(false);
+  closeSettings(); $('lock').style.display='flex'; ckMode(false);
 }
 function unlockApp(){
   $('lock').style.display='none'; ckSet=false;
@@ -754,31 +794,92 @@ function removePin(){
   var t=askTime('Lock hatane ke liye purana clock password likho'); if(!t)return;
   if(hash(t)===ls('dc_ck')){ls('dc_ck',null);alert('Lock hata diya');} else alert('Galat time');
 }
+/* ---------- Settings page (3 dots > Settings) ---------- */
+function covEnabled(){ return ls('dc_cov')!=='0'; }
+function closeSettings(){ var o=$('setp'); if(o)o.style.display='none'; }
+function stRefresh(){ var o=$('setp'); if(o&&o.style.display==='flex')renderSettings(); }
+function vhideToggle(){
+  if(ls('dc_vhide')==='1'){ var p=prompt('Password likho'); if(p===null)return; if(p==='786'){ls('dc_vhide',null);applyVHide();} else alert('Galat password'); }
+  else { ls('dc_vhide','1'); applyVHide(); }
+}
+function clearChatAsk(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};hidden={};edits={};dels={};seen={};dlv={};vids={};stopPlayers();render();} }
+function stGroups(){
+  function T(ic,t,sub,on,f){return {k:'t',ic:ic,t:t,s:sub,on:on,f:f};}
+  function A(ic,t,sub,f,red){return {k:'a',ic:ic,t:t,s:sub,f:f,red:red};}
+  var sec=[], idle=idleSecs();
+  sec.push(T('🕒','Clock lock','App khulne par clock nazar aaye, sahi time par hi khule',lockOn(),function(){ if(lockOn())removePin(); else setPin(); }));
+  if(lockOn()){
+    sec.push(A('🔁','Clock password badlo','',function(){var t=askTime('Purana clock password likho');if(!t)return;if(hash(t)===ls('dc_ck'))setPin();else alert('Galat time');}));
+    sec.push(A('🔒','Abhi lock karo','',function(){closeSettings();lockNow();}));
+  }
+  sec.push(T('🔎','Search secret code','Minimize par chat emoji ban jaye, Search mein code likhne par wapas aaye',sqSet(),function(){ if(sqSet())askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');}); else setSq(); }));
+  if(sqSet()){
+    sec.push(A('🔑','Search secret code badlo','',function(){askOldSq(setSq);}));
+    sec.push(A('😀','Chat abhi emoji karo','',function(){closeSettings();maskApply(true);}));
+  }
+  sec.push(T('⬛','Recent apps mein kaali screen','App minimize karne par 3-line preview kaala dikhe',covEnabled(),function(){ ls('dc_cov',covEnabled()?'0':'1'); }));
+  sec.push(T('🕶','Auto black screen','Kuch na chhoo to screen kaali ho jaye, tap par wapas',idle>0,function(){ ls('dc_idle',idle>0?'0':'10'); idleBump(); }));
+  if(idle>0)sec.push({k:'s',vals:[5,10,30],cur:idle,f:function(v){ ls('dc_idle',String(v)); idleBump(); }});
+  sec.push(T('📵','Video / Voice call button chupao','Header se call ke icon hata do (password se wapas aate hain)',ls('dc_vhide')==='1',vhideToggle));
+  return [
+    ['Privacy aur Security',sec],
+    ['Notifications',[
+      T('🔔','Notification','App minimize ho to naye message par notification',notifOn(),function(){ if(notifOn())ls('dc_notif',null); else enableNotif(); }),
+      T('📲','Band app par notification','App band hone par bhi push (ntfy)',ntfyOn(),function(){ ls('dc_ntfy',ntfyOn()?'0':'1'); if(ntfyOn())ntfyGuide(); }),
+      A('🔗','ntfy topic / setup','Apna topic dekho aur subscribe karo',ntfyGuide)
+    ]],
+    ['Connection',[
+      T('🔆','Screen on rakho','Chat khuli ho to screen band na ho (connection na toote)',wakeOn(),wakeToggle)
+    ]],
+    ['Calls aur Media',[
+      A('🎤','Mic / Camera ijazat check','Mic ya camera na chale to yahan se check karo',permCheck)
+    ]],
+    ['Display',[
+      T('🌙','Dark mode','',ls('dc_dark')==='1',function(){ ls('dc_dark',ls('dc_dark')==='1'?'0':'1'); applyDark(); })
+    ]],
+    ['Chat',[
+      A('🚪','Chat code badlo','Doosre chat code mein jao',function(){location.reload();}),
+      A('🧹','Chat saaf karo','Sirf is device se saari chat hatao',clearChatAsk,true)
+    ]]
+  ];
+}
+function renderSettings(){
+  var o=$('setp'), old=o.querySelector('.sb'), top=old?old.scrollTop:0;
+  o.textContent='';
+  var h=document.createElement('div'); h.className='sh';
+  var bk=document.createElement('button'); bk.textContent='←'; bk.onclick=closeSettings;
+  var tt=document.createElement('b'); tt.textContent='Settings';
+  h.appendChild(bk); h.appendChild(tt); o.appendChild(h);
+  var body=document.createElement('div'); body.className='sb';
+  stGroups().forEach(function(g){
+    var hd=document.createElement('h4'); hd.textContent=g[0]; body.appendChild(hd);
+    var card=document.createElement('div'); card.className='card';
+    g[1].forEach(function(it){
+      if(it.k==='s'){
+        var sg=document.createElement('div'); sg.className='seg';
+        it.vals.forEach(function(v){ var sp=document.createElement('span'); sp.textContent=v+' sec'; if(v===it.cur)sp.className='a'; sp.onclick=function(){ it.f(v); renderSettings(); }; sg.appendChild(sp); });
+        card.appendChild(sg); return;
+      }
+      var r=document.createElement('div'); r.className='row'+(it.red?' red':'');
+      var ic=document.createElement('span'); ic.className='ic'; ic.textContent=it.ic;
+      var tx=document.createElement('div'); tx.className='tx';
+      var b=document.createElement('b'); b.textContent=it.t; tx.appendChild(b);
+      if(it.s){ var sm=document.createElement('small'); sm.textContent=it.s; tx.appendChild(sm); }
+      r.appendChild(ic); r.appendChild(tx);
+      if(it.k==='t'){ var sw=document.createElement('div'); sw.className='sw'+(it.on?' on':''); r.appendChild(sw); }
+      else { var gg=document.createElement('span'); gg.className='go'; gg.textContent='›'; r.appendChild(gg); }
+      r.onclick=function(){ try{ it.f(); }catch(e){} renderSettings(); };
+      card.appendChild(r);
+    });
+    body.appendChild(card);
+  });
+  o.appendChild(body); body.scrollTop=top;
+}
+function openSettings(){ hideMenu(); renderSettings(); $('setp').style.display='flex'; }
 $('more').onclick=function(e){
   e.stopPropagation();
-  var items=[];
-  if(lockOn()){
-    items.push({t:'🔒 Abhi lock karo',f:lockNow});
-    items.push({t:'🕒 Clock password badlo',f:function(){var t=askTime('Purana clock password likho');if(!t)return;if(hash(t)===ls('dc_ck'))setPin();else alert('Galat time');}});
-    items.push({t:'🔓 Lock hatao',f:removePin});
-  } else items.push({t:'🕒 Clock password lagao',f:setPin});
-  if(sqSet()){
-    items.push({t:'🙈 Chat emoji karo',f:function(){maskApply(true)}});
-    items.push({t:'🔎 Search secret code badlo',f:function(){askOldSq(setSq)}});
-    items.push({t:'🔎 Search secret code hatao',f:function(){askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');})}});
-  } else items.push({t:'🔎 Search secret code lagao',f:setSq});
-  items.push({t:'🕶 Auto black screen: '+(idleSecs()?idleSecs()+' sec':'band')+' (badlo)',f:idleCycle});
-  items.push({t:wakeOn()?'🔆 Screen on rakho: ON (band karo)':'🔆 Screen on rakho (connection na toote)',f:wakeToggle});
-  items.push({t:'🎤 Mic/Camera ijazat check karo',f:permCheck});
-  items.push({t:notifOn()?'🔕 Notification band karo':'🔔 Notification on karo',f:function(){ if(notifOn()){ls('dc_notif',null);alert('Notification band kar di.');} else enableNotif(); }});
-  items.push({t:ntfyOn()?'📲 Band app push: ON (band karo)':'📲 Band app par notification',f:ntfySetup});
-  items.push({t:ls('dc_dark')==='1'?'☀️ Light mode':'🌙 Dark mode',f:function(){ls('dc_dark',ls('dc_dark')==='1'?'0':'1');applyDark();}});
-  items.push({t:'🧹 Chat saaf karo',f:function(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};hidden={};edits={};dels={};seen={};dlv={};vids={};stopPlayers();render();} }});
-  items.push({t:ls('dc_vhide')==='1'?'🔓 Video call wapas lao':'🙈 Video call chupao',f:function(){
-    if(ls('dc_vhide')==='1'){ var p=prompt('Password likho'); if(p===null)return; if(p==='786'){ls('dc_vhide',null);applyVHide();alert('Video call wapas aa gaya');} else alert('Galat password'); }
-    else { ls('dc_vhide','1'); applyVHide(); }
-  }});
-  items.push({t:'🚪 Chat code badlo',f:function(){location.reload()}});
+  var items=[{t:'⚙️ Settings',f:openSettings}];
+  if(lockOn())items.push({t:'🔒 Abhi lock karo',f:lockNow});
   showMenu(items,$('more').getBoundingClientRect());
 };
 
@@ -786,16 +887,30 @@ $('more').onclick=function(e){
 var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 /* chat ab delete nahi hoti, minimize par sirf emoji ban jati hai (agar secret code laga ho) */
 /* ---------- recent apps (3-line) mein kaali screen ---------- */
-var coverT=null;
-function coverOn(){
-  $('cover').style.display='block';
-  if(!coverT)coverT=setInterval(function(){ if(!idleHold&&document.visibilityState==='visible'&&document.hasFocus())coverOff(); },500);
+var coverT=null, coverAt=0, coverEdge=false;
+function coverOn(why){
+  if(!covEnabled()&&!idleHold)return;
+  var was=$('cover').style.display==='block';
+  if(why==='edge'){ if(!was)coverEdge=true; } else coverEdge=false;
+  $('cover').style.display='block'; coverAt=Date.now();
+  /* sirf "edge swipe shuru hua par app wahin rahi" wali soorat mein khud wapas khule; baaki soorat mein sirf asal wapsi (focus/tap) par */
+  if(!coverT)coverT=setInterval(function(){
+    if(idleHold||!coverEdge)return;
+    if(document.visibilityState==='visible'&&document.hasFocus()&&Date.now()-coverAt>900)coverOff();
+  },300);
 }
 function coverOff(){
-  idleHold=false; idleBump();
+  idleHold=false; coverEdge=false; idleBump();
   $('cover').style.display='none';
   if(coverT){clearInterval(coverT);coverT=null;}
 }
+/* neeche se ungli swipe up (gesture navigation) shuru hote hi pehle se kaala kar do */
+(function(){
+  var edge=false, y0=0;
+  window.addEventListener('touchstart',function(e){ var t=e.touches[0]; edge=!!t&&t.clientY>=innerHeight-18; y0=t?t.clientY:0; },{passive:true,capture:true});
+  window.addEventListener('touchmove',function(e){ if(!edge)return; var t=e.touches[0]; if(t&&y0-t.clientY>10){ edge=false; coverOn('edge'); } },{passive:true,capture:true});
+  window.addEventListener('touchcancel',function(){ if(edge){ edge=false; coverOn('edge'); } },{passive:true,capture:true});
+})();
 $('cover').addEventListener('pointerdown',function(){ if(document.visibilityState==='visible')coverOff(); });
 window.addEventListener('blur',coverOn);
 window.addEventListener('focus',function(){ if(document.visibilityState==='visible')coverOff(); });
@@ -915,11 +1030,12 @@ function enableNotif(){
   Notification.requestPermission().then(function(p){
     if(p==='granted'){ ls('dc_notif','1'); alert('Notification on ho gayi. App minimize hone par naya message aane par phone par notification aayegi.'); }
     else alert('Ijazat nahi mili. Phone Settings > Apps > Clock > Notifications on karo.');
+    try{stRefresh();}catch(e){}
   });
 }
 
 /* ---------- band app par push (ntfy.sh, optional) ---------- */
-function ntfyOn(){ return ls('dc_ntfy')==='1'; }
+function ntfyOn(){ return ls('dc_ntfy')!=='0'; }
 function ntfyTopic(name,cb){
   var s='dc-ntfy|'+ls('dc_room')+'|'+String(name||'').trim().toLowerCase();
   function fallback(){ cb('dc'+hash(s)+hash(s+'2')+hash(s+'3')); }
@@ -931,29 +1047,57 @@ function ntfyTopic(name,cb){
   } else fallback();
 }
 function peerNameNow(){
-  if(peer&&peer.name)return peer.name;
-  var best=null;
-  Object.keys(all).forEach(function(i){ var m=all[i]; if(m&&m.cid!==cid&&m.name&&(!best||m.ts>best.ts))best=m; });
-  return best?best.name:'';
+  var key='dc_peer|'+ls('dc_room'), n='';
+  if(peer&&peer.name)n=peer.name;
+  else{
+    var best=null;
+    Object.keys(all).forEach(function(i){ var m=all[i]; if(m&&m.cid!==cid&&m.name&&(!best||m.ts>best.ts))best=m; });
+    if(best)n=best.name;
+  }
+  if(n){ ls(key,n); return n; }
+  return ls(key);   /* pehle kabhi dost ka naam dekha ho to wohi (1 saal baad bhi chalega) */
+}
+function relayText(text,id){
+  if(!ntfyOn())return;
+  if(id){ if(pushedIds[id])return; pushedIds[id]=1; }
+  var pn=peerNameNow(); if(!pn)return;
+  ntfyTopic(pn,function(t){
+    try{ fetch('https://ntfy.sh/'+t+'?title=Clock&priority=5',{method:'POST',body:text,mode:'no-cors',keepalive:true}).catch(function(){}); }catch(e){}
+  });
 }
 function relayPush(raw){
   if(!ntfyOn())return;
   var d; try{ d=JSON.parse(raw); }catch(e){ return; }
-  if(!d||!d.id||d.cid!==cid||pushedIds[d.id])return;
-  pushedIds[d.id]=1;
-  var pn=peerNameNow(); if(!pn)return;
-  ntfyTopic(pn,function(t){
-    try{ fetch('https://ntfy.sh/'+t+'?title=Clock&priority=4',{method:'POST',body:'Naya message',mode:'no-cors'}).catch(function(){}); }catch(e){}
-  });
+  if(!d||!d.id||d.cid!==cid)return;
+  relayText('Naya message',d.id);
 }
-function ntfySetup(){
-  if(ntfyOn()){ if(confirm('Band app par notification (ntfy) band karein?')){ ls('dc_ntfy',null); alert('Band kar di.'); } return; }
-  if(!confirm('Is se app band hone par bhi phone par notification aayegi. Dost ke message par ntfy.sh server ko sirf "Naya message" jaisa lafz jata hai (chat ka text nahi). Dono doston ko apne phone par ntfy app lagani hogi. Shuru karein?'))return;
+function ntfyCopy(t,btn){
+  try{ navigator.clipboard.writeText(t).then(function(){btn.textContent='Copy ho gaya ✔';}); }
+  catch(e){ prompt('Topic copy karo:',t); }
+}
+function ntfyGuide(){
   ntfyTopic(myName,function(t){
-    ls('dc_ntfy','1');
-    prompt('Apne phone par "ntfy" app install karo, "Subscribe to topic" dabao aur ye topic likho (copy kar lo). Dost ke phone par bhi yehi setup karna hai:',t);
+    var o=document.createElement('div');
+    o.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.65);z-index:99998;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto';
+    var b=document.createElement('div');
+    b.style.cssText='background:#fff;color:#111;border-radius:14px;padding:18px;max-width:380px;width:100%;font:15px/1.5 sans-serif';
+    b.innerHTML='<div style="font-weight:700;font-size:17px;margin-bottom:8px">📲 App band ho tab bhi notification</div>'
+      +'<div>1) Phone mein <b>ntfy</b> app install karo (Play Store / App Store).<br>2) Neeche wala hara button dabao, ya ntfy mein ye topic subscribe karo:</div>'
+      +'<div style="background:#eee;border-radius:8px;padding:8px;margin:8px 0;word-break:break-all;font-family:monospace;font-size:13px">'+t+'</div>'
+      +'<a href="ntfy://ntfy.sh/'+t+'" style="display:block;text-align:center;background:#008069;color:#fff;padding:11px;border-radius:10px;text-decoration:none;font-weight:700;margin-bottom:8px">ntfy app mein subscribe karo</a>'
+      +'<div style="display:flex;gap:8px"><button id="ntfyCp" style="flex:1;padding:10px;border:0;border-radius:10px;background:#e3e3e3;font-size:14px">Topic copy</button><button id="ntfyX" style="flex:1;padding:10px;border:0;border-radius:10px;background:#e3e3e3;font-size:14px">Band karo</button></div>'
+      +'<div style="font-size:13px;color:#555;margin-top:10px">⚠️ Ye sab <b>dost ke phone par bhi</b> karna hai (uska apna topic banega). Android par ntfy ko Battery &gt; Unrestricted de do. Notification mein sirf “Naya message” aata hai, chat ka text nahi.</div>';
+    o.appendChild(b); document.body.appendChild(o);
+    b.querySelector('#ntfyCp').onclick=function(){ntfyCopy(t,this)};
+    b.querySelector('#ntfyX').onclick=function(){ document.body.removeChild(o); };
   });
 }
+function ntfySetup(){ ntfyGuide(); }
+function ntfyToggle(){
+  if(ntfyOn()){ ls('dc_ntfy','0'); alert('Band app push band kar di.'); }
+  else { ls('dc_ntfy','1'); alert('Band app push on ho gayi.'); ntfyGuide(); }
+}
+function ntfyFirstRun(){ if(!ls('dc_ntfy_seen')&&ntfyOn()){ ls('dc_ntfy_seen','1'); ntfyGuide(); } }
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 $('go').onclick=start;
@@ -1009,7 +1153,7 @@ async function startCall(voice){
   callPeerCid=null; callPeerName=peer?peer.name:'';
   $('callview').style.display='block'; setCallState('Call ho rahi hai…');
   var offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-  rtcSend({kind:'offer',cid:cid,name:myName,voice:voice,sdp:offer});
+  rtcSend({kind:'offer',cid:cid,name:myName,voice:voice,sdp:offer}); relayText(voice?'Voice call aa rahi hai':'Video call aa rahi hai');
 }
 function rtcHandle(d){
   if(d.kind==='offer'){
