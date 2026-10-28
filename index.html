@@ -633,11 +633,12 @@ function start(){
   $('join').style.display='none'; $('chat').style.display='flex'; conn='connecting…'; setStatus();
   base='dostchat-v1/'+room;
   loadHist(function(){ render(false); });
-  client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:3000,clean:true});
+  client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:2000,connectTimeout:10000,keepalive:20,resubscribe:true,clean:true});
   var _pub0=client.publish; client.publish=function(tp){ try{ if(tp===base+'/msg')relayPush(arguments[1]); }catch(e){} return _pub0.apply(client,arguments); };
   client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
   client.on('reconnect',function(){ conn='reconnecting…'; setStatus(); });
   client.on('offline',function(){ conn='offline'; setStatus(); });
+  client.on('error',function(){});
   client.on('message',function(topic,payload){
     try{
       var d=JSON.parse(payload.toString()), t=topic.slice(base.length+1);
@@ -766,6 +767,8 @@ $('more').onclick=function(e){
     items.push({t:'🔎 Search secret code badlo',f:function(){askOldSq(setSq)}});
     items.push({t:'🔎 Search secret code hatao',f:function(){askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');})}});
   } else items.push({t:'🔎 Search secret code lagao',f:setSq});
+  items.push({t:'🕶 Auto black screen: '+(idleSecs()?idleSecs()+' sec':'band')+' (badlo)',f:idleCycle});
+  items.push({t:wakeOn()?'🔆 Screen on rakho: ON (band karo)':'🔆 Screen on rakho (connection na toote)',f:wakeToggle});
   items.push({t:'🎤 Mic/Camera ijazat check karo',f:permCheck});
   items.push({t:notifOn()?'🔕 Notification band karo':'🔔 Notification on karo',f:function(){ if(notifOn()){ls('dc_notif',null);alert('Notification band kar di.');} else enableNotif(); }});
   items.push({t:ntfyOn()?'📲 Band app push: ON (band karo)':'📲 Band app par notification',f:ntfySetup});
@@ -786,9 +789,10 @@ var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 var coverT=null;
 function coverOn(){
   $('cover').style.display='block';
-  if(!coverT)coverT=setInterval(function(){ if(document.visibilityState==='visible'&&document.hasFocus())coverOff(); },500);
+  if(!coverT)coverT=setInterval(function(){ if(!idleHold&&document.visibilityState==='visible'&&document.hasFocus())coverOff(); },500);
 }
 function coverOff(){
+  idleHold=false; idleBump();
   $('cover').style.display='none';
   if(coverT){clearInterval(coverT);coverT=null;}
 }
@@ -798,6 +802,64 @@ window.addEventListener('focus',function(){ if(document.visibilityState==='visib
 window.addEventListener('pageshow',function(){ if(document.visibilityState==='visible')coverOff(); });
 document.addEventListener('visibilitychange',function(){ if(document.hidden){coverOn();hideChat();lockNow();} else { coverOff(); if(!lockOn()||$('lock').style.display!=='flex')seenAll(); } });
 window.addEventListener('pagehide',function(){coverOn();hideChat();lockNow();});
+/* ---------- connection kabhi na tootay (auto reconnect) ---------- */
+var hiddenAt=0;
+function dropSock(){ try{ client.stream.destroy(); }catch(e){ try{ client.reconnect(); }catch(_){} } }
+function kickConn(force){
+  if(!client)return;
+  try{
+    if(client.connected){ if(force)dropSock(); else presPing(); }
+    else if(!client.reconnecting){ client.reconnect(); }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){ hiddenAt=Date.now(); }
+  else { kickConn(Date.now()-hiddenAt>15000); wakeAsk(); }
+});
+window.addEventListener('online',function(){ kickConn(true); });
+window.addEventListener('focus',function(){ if(client&&!client.connected)kickConn(false); });
+setInterval(function(){ if(client&&!client.connected&&!document.hidden)kickConn(false); },8000);
+
+/* ---------- screen on rakho (optional) ---------- */
+var wl=null;
+function wakeOn(){ return ls('dc_wake')==='1'; }
+function wakeAsk(){
+  try{
+    if(wakeOn()&&navigator.wakeLock&&!document.hidden&&!wl){
+      navigator.wakeLock.request('screen').then(function(l){ wl=l; l.addEventListener('release',function(){wl=null;}); }).catch(function(){});
+    }
+  }catch(e){}
+}
+function wakeToggle(){
+  if(wakeOn()){ ls('dc_wake',null); try{ if(wl)wl.release(); }catch(e){} wl=null; alert('Screen on rakhna band kar diya.'); }
+  else { ls('dc_wake','1'); wakeAsk(); alert('Ab chat khuli ho to phone ki screen band nahi hogi, is se connection nahi tootay ga. (Battery zyada lagti hai. Auto black screen saath on rakho.)'); }
+}
+
+/* ---------- auto black screen (kuch na chhoo to) ---------- */
+var idleHold=false, idleT=null;
+function idleSecs(){ var v=ls('dc_idle'); return v===''?10:(parseInt(v,10)||0); }
+function idleBump(){
+  if(idleT){ clearTimeout(idleT); idleT=null; }
+  var n=idleSecs(); if(!n)return;
+  idleT=setTimeout(idleFire,n*1000);
+}
+function idleFire(){
+  idleT=null;
+  if($('chat').style.display!=='flex'||document.hidden)return;
+  if((typeof rec!=='undefined'&&rec)||(typeof pc!=='undefined'&&pc)||$('callview').style.display==='block'){ idleBump(); return; }
+  idleHold=true; coverOn();
+}
+function idleCycle(){
+  var order=[5,10,30,0], cur=idleSecs(), i=order.indexOf(cur), nx=order[(i+1)%order.length];
+  ls('dc_idle',String(nx)); idleBump();
+  alert(nx?('Ab '+nx+' second kuch na chhoo to screen kaali ho jaye gi. Dobara dekhne ke liye screen par tap karo.'):'Auto black screen band kar di.');
+}
+['pointerdown','pointermove','touchstart','keydown','input','scroll','wheel'].forEach(function(ev){
+  window.addEventListener(ev,function(){ if(!idleHold)idleBump(); },{passive:true,capture:true});
+});
+document.addEventListener('freeze',function(){ coverOn(); });
+idleBump();
+
 /* ---------- mic / camera ijazat (asli wajah batata hai) ---------- */
 function permHelp(cam){
   var w=cam?'Camera':'Mic';
