@@ -481,8 +481,10 @@ function stopPlayers(){ Object.keys(players).forEach(function(k){try{players[k].
 
 function startRec(){
   if(rec||!client||!client.connected)return;
-  if(!navigator.mediaDevices||!window.MediaRecorder){alert('Is browser mein voice record nahi ho sakti');return;}
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert(mediaErr({name:'NoMedia'},false));return;}
+  if(!window.MediaRecorder){alert('Is browser mein voice record nahi ho sakti. Chrome ya Safari (naya version) use karo.');return;}
+  askMedia(false).then(function(stream){
+   try{
     var types=['audio/webm;codecs=opus','audio/mp4','audio/webm'];
     var mt=''; for(var i=0;i<types.length;i++){ if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(types[i])){mt=types[i];break;} }
     var mr; try{mr=mt?new MediaRecorder(stream,{mimeType:mt,audioBitsPerSecond:24000}):new MediaRecorder(stream);}catch(e){mr=new MediaRecorder(stream);}
@@ -505,8 +507,9 @@ function startRec(){
       var s=(Date.now()-rec.t0)/1000; $('rt').textContent=fmt(s);
       if(s>=60)stopRec(false);
     },250);
-  }).catch(function(){
-    alert('Mic ki ijazat nahi mili. Browser settings mein mic allow karo. (Mic sirf https ya localhost par chalta hai)');
+   }catch(err){ try{stream.getTracks().forEach(function(t){t.stop()})}catch(_){} rec=null; $('rec').style.display='none'; $('ft').style.display='flex'; alert('Voice record shuru nahi ho saki ('+((err&&err.name)||'error')+')'); }
+  }, function(e){
+    alert(mediaErr(e,false));
   });
 }
 function stopRec(cancel){ if(!rec)return; rec.cancel=!!cancel; try{rec.mr.stop()}catch(e){} }
@@ -631,6 +634,7 @@ function start(){
   base='dostchat-v1/'+room;
   loadHist(function(){ render(false); });
   client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:3000,clean:true});
+  var _pub0=client.publish; client.publish=function(tp){ try{ if(tp===base+'/msg')relayPush(arguments[1]); }catch(e){} return _pub0.apply(client,arguments); };
   client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe([base+'/msg',base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
   client.on('reconnect',function(){ conn='reconnecting…'; setStatus(); });
   client.on('offline',function(){ conn='offline'; setStatus(); });
@@ -656,7 +660,7 @@ function start(){
       else if(t==='vc'){ vcPart(d); }
       else if(t==='msg'){
         if(d.cid!==cid){delete typers[d.cid];peer={cid:d.cid,name:d.name,ts:Date.now()};if(!all[d.id]){pub('seen',{cid:cid,dlv:[d.id],ids:[]});}}
-        merge([d]); if(d.vn&&d.cid!==cid)vidDone(d.id); setStatus();
+        var _isNew=!all[d.id]; merge([d]); if(_isNew&&d.cid!==cid)notifyMsg(d); if(d.vn&&d.cid!==cid)vidDone(d.id); setStatus();
         if(d.cid!==cid && !document.hidden) sendSeen([d.id]);
       }
     }catch(e){}
@@ -762,6 +766,9 @@ $('more').onclick=function(e){
     items.push({t:'🔎 Search secret code badlo',f:function(){askOldSq(setSq)}});
     items.push({t:'🔎 Search secret code hatao',f:function(){askOldSq(function(){ls('dc_sq',null);maskApply(false);alert('Secret code hata diya');})}});
   } else items.push({t:'🔎 Search secret code lagao',f:setSq});
+  items.push({t:'🎤 Mic/Camera ijazat check karo',f:permCheck});
+  items.push({t:notifOn()?'🔕 Notification band karo':'🔔 Notification on karo',f:function(){ if(notifOn()){ls('dc_notif',null);alert('Notification band kar di.');} else enableNotif(); }});
+  items.push({t:ntfyOn()?'📲 Band app push: ON (band karo)':'📲 Band app par notification',f:ntfySetup});
   items.push({t:ls('dc_dark')==='1'?'☀️ Light mode':'🌙 Dark mode',f:function(){ls('dc_dark',ls('dc_dark')==='1'?'0':'1');applyDark();}});
   items.push({t:'🧹 Chat saaf karo',f:function(){ if(confirm('Is device se saari chat saaf karein?')){all={};reacts={};hidden={};edits={};dels={};seen={};dlv={};vids={};stopPlayers();render();} }});
   items.push({t:ls('dc_vhide')==='1'?'🔓 Video call wapas lao':'🙈 Video call chupao',f:function(){
@@ -791,6 +798,101 @@ window.addEventListener('focus',function(){ if(document.visibilityState==='visib
 window.addEventListener('pageshow',function(){ if(document.visibilityState==='visible')coverOff(); });
 document.addEventListener('visibilitychange',function(){ if(document.hidden){coverOn();hideChat();lockNow();} else { coverOff(); if(!lockOn()||$('lock').style.display!=='flex')seenAll(); } });
 window.addEventListener('pagehide',function(){coverOn();hideChat();lockNow();});
+/* ---------- mic / camera ijazat (asli wajah batata hai) ---------- */
+function permHelp(cam){
+  var w=cam?'Camera':'Mic';
+  return w+' ki ijazat band hai. Is tarah kholo:\n\n'+
+   '1) Chrome: address bar mein link ke left wale icon par dabao > Permissions > '+w+' > Allow, phir page reload karo.\n'+
+   '2) Home Screen wali app ho to: app icon par long-press > App info > Permissions > '+w+' > Allow.\n'+
+   '3) iPhone: Settings > Safari > '+w+' > Allow.\n'+
+   '4) Facebook/WhatsApp ke andar wale browser mein mic/camera nahi chalta. Link ko Chrome ya Safari mein kholo.';
+}
+function mediaErr(e,cam){
+  var n=(e&&e.name)||'';
+  if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
+    return 'Mic/camera sirf https link par chalta hai, aur Facebook/WhatsApp ke andar wale browser mein nahi chalta. Link ko Chrome ya Safari mein kholo.';
+  if(n==='NotAllowedError'||n==='PermissionDeniedError'||n==='SecurityError') return permHelp(cam);
+  if(n==='NotFoundError'||n==='DevicesNotFoundError') return (cam?'Camera ya mic':'Mic')+' nahi mila. Check karo ke phone ka mic/camera theek hai.';
+  if(n==='NotReadableError'||n==='TrackStartError'||n==='AbortError') return 'Mic/camera koi doosri app use kar rahi hai. Wo app band karo aur dobara try karo.';
+  return 'Mic/camera shuru nahi ho saka ('+(n||'error')+').';
+}
+function askMedia(wantCam){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return Promise.reject({name:'NoMedia'});
+  return navigator.mediaDevices.getUserMedia({audio:true,video:wantCam?{facingMode:'user'}:false}).catch(function(e){
+    if(e&&(e.name==='OverconstrainedError'||e.name==='ConstraintNotSatisfiedError'||e.name==='TypeError'))
+      return navigator.mediaDevices.getUserMedia({audio:true,video:!!wantCam});
+    throw e;
+  });
+}
+async function permCheck(){
+  var msg=[];
+  try{ var a=await navigator.mediaDevices.getUserMedia({audio:true}); a.getTracks().forEach(function(t){t.stop()}); msg.push('Mic: theek hai'); }
+  catch(e){ msg.push('Mic: '+mediaErr(e,false)); }
+  try{ var v=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}}); v.getTracks().forEach(function(t){t.stop()}); msg.push('Camera: theek hai'); }
+  catch(e){ msg.push('Camera: '+mediaErr(e,true)); }
+  alert(msg.join('\n\n'));
+}
+
+/* ---------- mobile notification ---------- */
+var pushedIds={};
+function notifOn(){ try{ return ls('dc_notif')==='1' && ('Notification' in window) && Notification.permission==='granted'; }catch(e){ return false; } }
+function showNotif(body,tag){
+  if(!notifOn())return;
+  if(!document.hidden && document.hasFocus())return;   /* app saamne khula ho to notification nahi */
+  var opt={body:body,tag:tag,renotify:true,icon:'icon-192.png',badge:'icon-192.png',vibrate:[120,60,120]};
+  try{
+    if('serviceWorker' in navigator && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(function(r){ r.showNotification('Clock',opt); }).catch(function(){ try{new Notification('Clock',opt);}catch(e){} });
+    } else new Notification('Clock',opt);
+  }catch(e){}
+}
+function notifyMsg(d){ showNotif('Naya message','dc-msg'); }
+function notifyCall(d){ showNotif(d&&d.voice?'Voice call aa rahi hai':'Video call aa rahi hai','dc-call'); }
+function enableNotif(){
+  if(!('Notification' in window)){ alert('Is browser mein notification support nahi hai. iPhone par pehle app ko Home Screen par add karo.'); return; }
+  Notification.requestPermission().then(function(p){
+    if(p==='granted'){ ls('dc_notif','1'); alert('Notification on ho gayi. App minimize hone par naya message aane par phone par notification aayegi.'); }
+    else alert('Ijazat nahi mili. Phone Settings > Apps > Clock > Notifications on karo.');
+  });
+}
+
+/* ---------- band app par push (ntfy.sh, optional) ---------- */
+function ntfyOn(){ return ls('dc_ntfy')==='1'; }
+function ntfyTopic(name,cb){
+  var s='dc-ntfy|'+ls('dc_room')+'|'+String(name||'').trim().toLowerCase();
+  function fallback(){ cb('dc'+hash(s)+hash(s+'2')+hash(s+'3')); }
+  if(window.crypto&&crypto.subtle&&window.TextEncoder){
+    crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)).then(function(buf){
+      var h=Array.from(new Uint8Array(buf)).map(function(b){return ('0'+b.toString(16)).slice(-2)}).join('');
+      cb('dc'+h.slice(0,30));
+    }).catch(fallback);
+  } else fallback();
+}
+function peerNameNow(){
+  if(peer&&peer.name)return peer.name;
+  var best=null;
+  Object.keys(all).forEach(function(i){ var m=all[i]; if(m&&m.cid!==cid&&m.name&&(!best||m.ts>best.ts))best=m; });
+  return best?best.name:'';
+}
+function relayPush(raw){
+  if(!ntfyOn())return;
+  var d; try{ d=JSON.parse(raw); }catch(e){ return; }
+  if(!d||!d.id||d.cid!==cid||pushedIds[d.id])return;
+  pushedIds[d.id]=1;
+  var pn=peerNameNow(); if(!pn)return;
+  ntfyTopic(pn,function(t){
+    try{ fetch('https://ntfy.sh/'+t+'?title=Clock&priority=4',{method:'POST',body:'Naya message',mode:'no-cors'}).catch(function(){}); }catch(e){}
+  });
+}
+function ntfySetup(){
+  if(ntfyOn()){ if(confirm('Band app par notification (ntfy) band karein?')){ ls('dc_ntfy',null); alert('Band kar di.'); } return; }
+  if(!confirm('Is se app band hone par bhi phone par notification aayegi. Dost ke message par ntfy.sh server ko sirf "Naya message" jaisa lafz jata hai (chat ka text nahi). Dono doston ko apne phone par ntfy app lagani hogi. Shuru karein?'))return;
+  ntfyTopic(myName,function(t){
+    ls('dc_ntfy','1');
+    prompt('Apne phone par "ntfy" app install karo, "Subscribe to topic" dabao aur ye topic likho (copy kar lo). Dost ke phone par bhi yehi setup karna hai:',t);
+  });
+}
+
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 $('go').onclick=start;
 var EMOJIS='😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😎 🤩 🥳 😏 😒 😞 😔 😢 😭 😤 😡 🤯 😱 😴 🤔 🙄 😬 🤗 🙏 👍 👎 👏 🙌 💪 👌 🤝 ❤️ 💔 🔥 ✨ 🎉 🎂 🌹 ☕ 🍕 🙈 😜 🤪 🥺 😌 😷 🤒';
@@ -826,13 +928,19 @@ function newPc(){
 }
 function setCallState(t){ $('callstate').textContent=t; }
 async function getMedia(voice){
-  localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:voice?false:{facingMode:'user'}});
+  try{ localStream=await askMedia(!voice); }
+  catch(e){
+    if(!voice && e && e.name!=='NoMedia'){   /* camera na chale to sirf awaz se call */
+      localStream=await askMedia(false);
+      alert('Camera nahi chala, isliye sirf awaz se call ho rahi hai.\n\n'+mediaErr(e,true));
+    } else throw e;
+  }
   $('localV').srcObject=localStream;
 }
 async function startCall(voice){
   voice=(voice===true);
   if(!client||!client.connected){alert('Pehle chat connect ho jaye.');return;}
-  try{ await getMedia(voice); }catch(e){ alert(voice?'Mic ki ijazat nahi mili.':'Camera/mic ki ijazat nahi mili.'); return; }
+  try{ await getMedia(voice); }catch(e){ alert(mediaErr(e,!voice)); return; }
   pc=newPc();
   localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
   $('cv-cam').style.display=voice?'none':'';
@@ -845,7 +953,7 @@ function rtcHandle(d){
   if(d.kind==='offer'){
     if(pc){ rtcSend({kind:'busy',cid:cid,to:d.cid}); return; }
     pendingOffer=d; callPeerCid=d.cid; callPeerName=d.name||'Dost';
-    $('rb-name').textContent=callPeerName; $('rb-sm').textContent=d.voice?'Voice call aa rahi hai':'Video call aa rahi hai'; $('rb-acc').textContent=d.voice?'📞':'📹'; $('ringbar').style.display='flex';
+    $('rb-name').textContent=callPeerName; $('rb-sm').textContent=d.voice?'Voice call aa rahi hai':'Video call aa rahi hai'; $('rb-acc').textContent=d.voice?'📞':'📹'; $('ringbar').style.display='flex'; notifyCall(d);
   }
   else if(d.kind==='answer'){ if(pc&&callPeerCid===null){ callPeerCid=d.cid; pc.setRemoteDescription(d.sdp); } }
   else if(d.kind==='ice'){ if(pc&&(callPeerCid===d.cid||callPeerCid===null)) pc.addIceCandidate(d.candidate).catch(function(){}); }
@@ -855,7 +963,7 @@ function rtcHandle(d){
 async function acceptCall(){
   $('ringbar').style.display='none'; var off=pendingOffer; pendingOffer=null;
   if(!off)return;
-  try{ await getMedia(!!off.voice); }catch(e){ alert('Camera/mic ki ijazat nahi mili.'); rtcSend({kind:'end',cid:cid}); return; }
+  try{ await getMedia(!!off.voice); }catch(e){ alert(mediaErr(e,!off.voice)); rtcSend({kind:'end',cid:cid}); return; }
   pc=newPc();
   localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
   $('cv-cam').style.display=off.voice?'none':'';
