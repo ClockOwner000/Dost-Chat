@@ -686,7 +686,7 @@ function start(){
   setTimeout(ntfyFirstRun,2500);
   client=mqtt.connect('wss://broker.hivemq.com:8884/mqtt',{reconnectPeriod:2000,connectTimeout:10000,keepalive:20,resubscribe:true,clean:false,clientId:'dc_'+cid});
   var _pub0=client.publish; client.publish=function(tp){ try{ if(tp===base+'/msg')relayPush(arguments[1]); }catch(e){} return _pub0.apply(client,arguments); };
-  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe(base+'/msg',{qos:1}); client.subscribe([base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres',base+'/rtc']); presPing(); client.publish(base+'/hist','',{retain:true}); });
+  client.on('connect',function(){ conn='online'; setStatus(); client.subscribe(base+'/vc',{qos:1}); client.subscribe(base+'/msg',{qos:1}); client.subscribe([base+'/seen',base+'/typing',base+'/edit',base+'/del',base+'/react',base+'/pres']); client.subscribe(base+'/rtc',{qos:1}); presPing(); client.publish(base+'/hist','',{retain:true}); });
   client.on('reconnect',function(){ conn='reconnecting…'; setStatus(); });
   client.on('offline',function(){ conn='offline'; setStatus(); });
   client.on('error',function(){});
@@ -1166,12 +1166,32 @@ if(!ls('dc_dark'))ls('dc_dark',(window.matchMedia&&matchMedia('(prefers-color-sc
 
 /* ---------- video call (WebRTC, signaling over MQTT) ---------- */
 var pc=null, localStream=null, callPeerCid=null, callPeerName='', pendingOffer=null, micOn=true, camOn=true, callTimer=null;
-var RTC_CFG={iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]};
+var RTC_CFG={iceServers:[
+  {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
+  {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}
+]};
+var iceQ=[];
+function addIce(c){
+  if(pc&&pc.remoteDescription&&pc.remoteDescription.type)pc.addIceCandidate(c).catch(function(){});
+  else iceQ.push(c);
+}
+function flushIce(){
+  var q=iceQ; iceQ=[];
+  q.forEach(function(c){ try{pc.addIceCandidate(c).catch(function(){});}catch(e){} });
+}
 function rtcSend(d){ if(client&&client.connected)client.publish(base+'/rtc',JSON.stringify(d),{qos:1}); }
 function newPc(){
   var p=new RTCPeerConnection(RTC_CFG);
   p.onicecandidate=function(e){ if(e.candidate) rtcSend({kind:'ice',cid:cid,candidate:e.candidate}); };
-  p.ontrack=function(e){ $('remoteV').srcObject=e.streams[0]; setCallState('Connected'); };
+  p.ontrack=function(e){
+    var rv=$('remoteV'); rv.srcObject=e.streams[0];
+    var pl=rv.play(); if(pl&&pl.catch)pl.catch(function(){});
+  };
+  p.oniceconnectionstatechange=function(){
+    var s=p.iceConnectionState;
+    if(s==='connected'||s==='completed'){ setCallState('Connected'); var rv=$('remoteV'); var pl=rv.play(); if(pl&&pl.catch)pl.catch(function(){}); }
+    else if(s==='checking')setCallState('Jud raha hai…');
+  };
   p.onconnectionstatechange=function(){ if(p.connectionState==='failed'||p.connectionState==='disconnected')endCall(true); };
   return p;
 }
@@ -1193,7 +1213,7 @@ async function startCall(voice){
   pc=newPc();
   localStream.getTracks().forEach(function(t){pc.addTrack(t,localStream)});
   $('cv-cam').style.display=voice?'none':'';
-  callPeerCid=null; callPeerName=peer?peer.name:'';
+  iceQ=[]; callPeerCid=null; callPeerName=peer?peer.name:'';
   $('callview').style.display='block'; setCallState('Call ho rahi hai…');
   var offer=await pc.createOffer(); await pc.setLocalDescription(offer);
   rtcSend({kind:'offer',cid:cid,name:myName,voice:voice,sdp:offer}); relayText(voice?'Voice call aa rahi hai':'Video call aa rahi hai');
@@ -1201,11 +1221,11 @@ async function startCall(voice){
 function rtcHandle(d){
   if(d.kind==='offer'){
     if(pc){ rtcSend({kind:'busy',cid:cid,to:d.cid}); return; }
-    pendingOffer=d; callPeerCid=d.cid; callPeerName=d.name||'Dost';
+    iceQ=[]; pendingOffer=d; callPeerCid=d.cid; callPeerName=d.name||'Dost';
     $('rb-name').textContent=callPeerName; $('rb-sm').textContent=d.voice?'Voice call aa rahi hai':'Video call aa rahi hai'; $('rb-acc').textContent=d.voice?'📞':'📹'; $('ringbar').style.display='flex'; notifyCall(d);
   }
-  else if(d.kind==='answer'){ if(pc&&callPeerCid===null){ callPeerCid=d.cid; pc.setRemoteDescription(d.sdp); } }
-  else if(d.kind==='ice'){ if(pc&&(callPeerCid===d.cid||callPeerCid===null)) pc.addIceCandidate(d.candidate).catch(function(){}); }
+  else if(d.kind==='answer'){ if(pc&&callPeerCid===null){ callPeerCid=d.cid; pc.setRemoteDescription(d.sdp).then(flushIce).catch(function(){}); } }
+  else if(d.kind==='ice'){ if(callPeerCid===d.cid||callPeerCid===null) addIce(d.candidate); }
   else if(d.kind==='end'){ if(pc||pendingOffer) endCall(true); }
   else if(d.kind==='busy'){ if(d.to===cid) endCall(true); }
 }
@@ -1218,6 +1238,7 @@ async function acceptCall(){
   $('cv-cam').style.display=off.voice?'none':'';
   $('callview').style.display='block'; setCallState('Jud raha hai…');
   await pc.setRemoteDescription(off.sdp);
+  flushIce();
   var ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
   rtcSend({kind:'answer',cid:cid,sdp:ans});
 }
