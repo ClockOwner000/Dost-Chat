@@ -191,8 +191,11 @@ body.dark #setp .red .pb.act{color:#ff8a80}
 #ck-o{display:inline-block;padding:14px 4px;margin:-14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 
 /* video call */
-#vcall,#acall{background:none;border:0;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%}
-#vcall:active,#acall:active{background:rgba(255,255,255,.15)}
+#vcall,#acall,#emob,#clrb{background:none;border:0;color:#fff;font-size:20px;width:38px;height:40px;border-radius:50%;padding:0;flex:none}
+#vcall:active,#acall:active,#emob:active,#clrb:active{background:rgba(255,255,255,.15)}
+#ck-adj{display:none;gap:8px;margin-top:4px}
+#ck-adj button{min-width:62px;height:40px;border:0;border-radius:10px;background:#1c2530;color:#e8eef5;font-size:16px;font-weight:700}
+#ck-adj button:active{background:#2b3846}
 #ringbar{display:none;position:fixed;left:10px;right:10px;top:max(10px,env(safe-area-inset-top));z-index:120;background:#1c2530;color:#fff;border-radius:14px;padding:10px 12px;align-items:center;justify-content:space-between;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 #ringbar .rb-txt small{display:block;opacity:.7;font-size:12px}
 .rb-btns{display:flex;gap:8px}
@@ -215,6 +218,8 @@ body.dark #setp .red .pb.act{color:#ff8a80}
 <header>
   <div class="av" id="avt">💬</div>
   <div class="hd"><b id="ttl">Dost Chat</b><small id="st"></small></div>
+  <button id="emob" aria-label="Chat emoji karo">😀</button>
+  <button id="clrb" aria-label="Chat saaf karo">🧹</button>
   <button id="acall" aria-label="Voice call">📞</button>
   <button id="vcall" aria-label="Video call">📹</button>
   <button id="more" aria-label="Settings">⋮</button>
@@ -256,6 +261,10 @@ body.dark #setp .red .pb.act{color:#ff8a80}
   </svg>
   <div id="ck-dig"></div>
   <div id="ck-date"></div>
+  <div id="ck-adj">
+    <button id="ck-hm">Ghanta −</button><button id="ck-hp">Ghanta +</button>
+    <button id="ck-mm">Minute −</button><button id="ck-mp">Minute +</button>
+  </div>
   <button id="ck-ok">OK</button>
   <div id="ck-word">Cl<span id="ck-o">o</span>ck</div>
 </div>
@@ -738,6 +747,7 @@ setInterval(ckDraw,1000);
 function ckMode(on){
   ckSet=on;
   $('ck-ok').style.display=on?'block':'none';
+  $('ck-adj').style.display=on?'flex':'none';
   if(on){var d=new Date();ckH=d.getHours();ckM=d.getMinutes();}
   ckDraw();
 }
@@ -745,6 +755,16 @@ function ckTryOk(){
   if(hash(ckNorm(ckH,ckM))===ls('dc_ck')){ unlockApp(); }
 }
 $('ck-o').onclick=function(e){e.stopPropagation();ckMode(!ckSet)};
+function ckStep(dh,dm){
+  if(!ckSet)return;
+  if(dh)ckH=(ckH+dh+24)%24;
+  if(dm){ ckM=(ckM+dm+60)%60; }
+  ckDraw();
+}
+$('ck-hp').onclick=function(){ckStep(1,0)};
+$('ck-hm').onclick=function(){ckStep(-1,0)};
+$('ck-mp').onclick=function(){ckStep(0,1)};
+$('ck-mm').onclick=function(){ckStep(0,-1)};
 $('ck-ok').onclick=ckTryOk;
 var ckDrag=null;
 function ckAngle(ev,svg){
@@ -1109,7 +1129,20 @@ function ntfyToggle(){
 }
 function ntfyFirstRun(){ if(!ls('dc_ntfy_seen')&&ntfyOn()){ ls('dc_ntfy_seen','1'); ntfyGuide(); } }
 
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+if('serviceWorker' in navigator){
+  var hadSW=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+    reg.update().catch(function(){});
+    document.addEventListener('visibilitychange',function(){ if(!document.hidden)reg.update().catch(function(){}); });
+    setInterval(function(){ reg.update().catch(function(){}); },300000);
+  }).catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    /* naya version aaya: call/recording na ho to khud reload */
+    if(!hadSW){hadSW=true;return;}
+    if(pc||rec)return;
+    location.reload();
+  });
+}
 $('go').onclick=start;
 var EMOJIS='😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😎 🤩 🥳 😏 😒 😞 😔 😢 😭 😤 😡 🤯 😱 😴 🤔 🙄 😬 🤗 🙏 👍 👎 👏 🙌 💪 👌 🤝 ❤️ 💔 🔥 ✨ 🎉 🎂 🌹 ☕ 🍕 🙈 😜 🤪 🥺 😌 😷 🤒';
 var emp=$('emp'); EMOJIS.split(' ').forEach(function(e){var sp=document.createElement('span');sp.textContent=e;sp.onclick=function(){$('in').value+=e;updIcon();};emp.appendChild(sp);});
@@ -1198,6 +1231,12 @@ function endCall(remoteEnded){
   callPeerCid=null; pendingOffer=null; micOn=true; camOn=true;
   $('cv-mic').className=''; $('cv-cam').className=''; $('cv-cam').style.display='';
 }
+$('emob').onclick=function(){
+  if(maskOn)return;
+  if(!sqSet()){ setSq(); if(!sqSet())return; }
+  closeSettings(); maskApply(true);
+};
+$('clrb').onclick=function(){ clearChatAsk(); };
 $('vcall').onclick=function(){startCall(false)};
 $('acall').onclick=function(){startCall(true)};
 $('rb-acc').onclick=acceptCall;
